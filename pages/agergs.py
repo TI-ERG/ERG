@@ -294,6 +294,15 @@ def gerar_resumo():
     return arredondar_decimais(df_base)
 
 def gerar_xml(df):
+    # Formato algumas colunas para duas casas decimais. 301, 304, 306, 308, 309, 310, 314
+    cols = ["Indice VG OF Realizadas", "Indice Pontualidade", "Desemp. VG Interromp", "Idade Media", "Indice Quebra", "Indice Desv. Itinerário", "Indice Acidentes"]
+    df[cols] = df[cols].apply(pd.to_numeric, errors="coerce")
+    df[cols] = df[cols].applymap(lambda x: f"{x:.2f}")
+    # Formato algumas colunas para zero casas decimais. 311, 312, 313
+    cols = ["Lotação até 80%", "Lotação 80a100%", "Lotação >100%"]
+    df[cols] = df[cols].apply(pd.to_numeric, errors="coerce")
+    df[cols] = df[cols].applymap(lambda x: f"{x:.0f}")
+
     root = ET.Element("carga_dados")
 
     # Cabeçalho fixo
@@ -514,7 +523,7 @@ if st.session_state.get("mostrar_resumo", False):
             # BOTÃO — Exporta XML
             st.download_button(
                 label="📥 Baixar XML",
-                data=gerar_xml(st.session_state.df),
+                data=gerar_xml(st.session_state.df.copy()),
                 file_name="9034851700169-ITM-" + str(ano) + str(mes) + ".xml",
                 mime="application/xml"
             )
