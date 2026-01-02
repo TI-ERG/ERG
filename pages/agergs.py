@@ -300,7 +300,7 @@ def gerar_xml(df):
     df[cols] = df[cols].applymap(lambda x: f"{x:.2f}")
     # Formato algumas colunas para zero casas decimais. 311, 312, 313
     cols = ["Lotação até 80%", "Lotação 80a100%", "Lotação >100%"]
-    df[cols] = df[cols].apply(pd.to_numeric, errors="coerce")
+    #df[cols] = df[cols].apply(pd.to_numeric, errors="coerce")
     df[cols] = df[cols].applymap(lambda x: f"{float(x):.0f}")
 
     root = ET.Element("carga_dados")
