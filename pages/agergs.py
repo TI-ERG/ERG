@@ -29,7 +29,7 @@ def arredondar_decimais(df):
         "Indice Acidentes"
     ]
 
-    df[colunas_2_decimais] = (df[colunas_2_decimais] .astype(float) .round(2))
+    df[colunas_2_decimais] = (df[colunas_2_decimais].astype(float).round(2))
 
     return df
 
