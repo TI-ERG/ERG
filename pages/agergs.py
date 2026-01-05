@@ -151,7 +151,10 @@ def ler_detalhado():
 
 def ler_frota():
     # Ler o arquivo matriz da frota
-    with open('frota.json', 'r', encoding='utf-8') as arq_frota:
+    with open('config.json', 'r', encoding='utf-8') as f:
+        config = json.load(f)
+    
+    with open(config["agergs"]["frota"], 'r', encoding='utf-8') as arq_frota:
         frota = json.load(arq_frota)
 
     df = pd.DataFrame(frota)
@@ -163,7 +166,10 @@ def ler_frota():
 
 def ler_linhas():
     # Ler o arquivo matriz das linhas
-    with open('linhas.json', 'r', encoding='utf-8') as arq_linhas:
+    with open('config.json', 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    with open(config["agergs"]["linhas"], 'r', encoding='utf-8') as arq_linhas:
         linhas = json.load(arq_linhas)
 
     df = pd.DataFrame(linhas)

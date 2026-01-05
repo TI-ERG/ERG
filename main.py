@@ -18,9 +18,9 @@ pages = {
 }
 
 pages_dados = {
-    "Dados": [
-        st.Page("pages/frota.py", title="Frota", icon="🚌"),
-        st.Page("pages/linhas.py", title="Linhas", icon="🚏")
+    "Dados AGERGS": [
+        st.Page("pages/frota_agergs.py", title="Frota", icon="🚌"),
+        st.Page("pages/linhas_agergs.py", title="Linhas", icon="🚏")
     ]
 }
 

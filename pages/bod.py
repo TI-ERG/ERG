@@ -1,6 +1,5 @@
 import traceback
-import sys
-import locale
+from io import BytesIO
 from datetime import date
 from calendar import monthrange
 import json
@@ -217,17 +216,16 @@ if botao:
         # Processando
         progresso = st.empty()
         
-        df_bod = matriz_bod(config['modelo_bod'])
+        df_bod = matriz_bod(config['bod']['modelo_bod'])
         mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
 
         # ✳️ Preencher planilha BOD Metroplan ✳️
         progresso.info("Preenchendo planilha Metroplan...")
-        arq_dest = fr"{config['diretorio']}\{ano}\{mes:02}\90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx"
 
-        wb = load_workbook(config['modelo_metroplan'])
-        wb['Identificação da Empresa'].cell(row=11, column=7, value=mes)
-        wb['Identificação da Empresa'].cell(row=11, column=8, value=ano)
-        ws = wb['BOD']
+        wb_met = load_workbook(config['bod']['modelo_metroplan'])
+        wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
+        wb_met['Identificação da Empresa'].cell(row=11, column=8, value=ano)
+        ws = wb_met['BOD']
         ws.protection.sheet = False
         ws.protection.disable()
 
@@ -250,17 +248,21 @@ if botao:
                 ws.cell(row=i, column=col).number_format = '0.00'
 
         progresso.info("Salvando BOD Metroplan...")
-        wb.save(arq_dest)
+
+        # Salva em memória 
+        buffer_met = BytesIO() 
+        wb_met.save(buffer_met) 
+        buffer_met.seek(0)
+        
         ws = None
-        wb = None
+        wb_met = None
 
         # ✳️ Preencher planilha BOD ERG ✳️
-        arq_dest = fr"{config['diretorio']}\{ano}\{mes:02}\BOD {mes:02}.{ano}.xlsx"
-        wb = load_workbook(config['modelo_bod'])
+        wb_erg = load_workbook(config['modelo_bod'])
 
         # 1️⃣ [BOD]
         progresso.info("Preenchendo planilha BOD [BOD]...")
-        ws_bod = wb['BOD']
+        ws_bod = wb_erg['BOD']
         linha_modelo = 3 # Linha com a formatação de referência
         num_linhas_df = len(df_bod)
 
@@ -277,14 +279,17 @@ if botao:
                 ws_bod.cell(row=i, column=j, value=valor)
 
         #Salvo os dados no arquivo de config para o PDO
-        config['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
-        config['bod_km_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
-        config['bod_km_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
-        config['bod_km_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
-        config['bod_isentos_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-        config['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-        config['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
-        config['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
+        progresso.info("Atualizando arquivo de config com os dados do BOD...")
+
+        config['bod']['periodo'] = fr"{mes:02}/{ano}"
+        config['bod']['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
+        config['bod']['bod_km_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
+        config['bod']['bod_km_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
+        config['bod']['bod_km_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
+        config['bod']['bod_isentos_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
+        config['bod']['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
+        config['bod']['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
+        config['bod']['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
 
         with open('config.json', 'w', encoding='utf-8') as arq_conf:
             json.dump(config, arq_conf, indent=2, ensure_ascii=False)
@@ -341,7 +346,7 @@ if botao:
 
         df_sintetico = df_sintetico[colunas_ordenadas]
 
-        ws_sin = wb['SINTETICO']
+        ws_sin = wb_erg['SINTETICO']
 
         dados_cod = df_sintetico.set_index(['COD']).to_dict('index')  # Cria dicionário com os dados do df_final, cada COD mapeia um dict com os valores
         cods_restantes = set(dados_cod.keys()) # Lista de CODs ainda não usados
@@ -374,7 +379,7 @@ if botao:
             st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
 
         # 3️⃣ [ATM]
-        ws_atm = wb['ATM']
+        ws_atm = wb_erg['ATM']
 
         primeiro_dia = date(ano, mes, 1)
         ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
@@ -419,16 +424,33 @@ if botao:
 
         # Salvar
         progresso.info("Salvando BOD ERG...")
-        wb.remove(wb["MATRIZ"])
-        wb.active = wb.sheetnames.index('BOD')
-        for aba in wb.worksheets:
+        wb_erg.remove(wb_erg["MATRIZ"])
+        wb_erg.active = wb_erg.sheetnames.index('BOD')
+        for aba in wb_erg.worksheets:
             aba.sheet_view.tabSelected = (aba.title == 'BOD')
         
-        wb.save(arq_dest)
-        st.write(f"Arquivo salvo: {arq_dest}")
+        # Salva em memória 
+        buffer_erg = BytesIO() 
+        wb_erg.save(buffer_erg)
+        buffer_erg.seek(0)
+
+        # ✳️ Downloads ✳️
+        st.sidebar.download_button( 
+            label="Baixar BOD Metroplan", 
+            data=buffer_met, 
+            file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+            )
+
+        st.sidebar.download_button( 
+            label="Baixar BOD ERG", 
+            data=buffer_erg, 
+            file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+            )
 
 
-        # Comparativos de valores
+        # ✳️ Comparativos de valores ✳️
         df_soma['VT'] = df_soma['VT'] + df_soma['PL']
         df_soma = df_soma.drop(['PL', 'TOTAL'])
         df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE']].sum()
@@ -466,7 +488,8 @@ if botao:
         st.error(f"🐞 Erro: {traceback.format_exc()}")
 
     finally:
-        wb = None
+        wb_met = None
+        wb_erg = None
         ws = None
         ws_bod = None
         ws_sin = None

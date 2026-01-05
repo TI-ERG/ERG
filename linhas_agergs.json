@@ -1,0 +1,182 @@
+[
+    {
+        "Codigo": "L121",
+        "Linha": "P. ALEGRE - SANTA RITA /VIA FR",
+        "Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L121A",
+        "Linha": "P. ALEGRE - SANTA RITA /VIA CB",
+        "Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L131",
+        "Linha": "P. ALEGRE - COLINA /VIA FR",
+        "Raiz": "L131",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L131E",
+        "Linha": "TRONCAL P.ALEGRE - FÁTIMA VIA FR/BR-116",
+        "Raiz": "L131",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L151D",
+        "Linha": "TRONCAL P. ALEGRE - FLORIDA /VIA FR",
+        "Raiz": "L151D",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L500",
+        "Linha": "P. ALEGRE - SANS SOUCI",
+        "Raiz": "L500",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L501",
+        "Linha": "TRONCAL P. ALEGRE - ELDORADO DO SUL /VIA FR",
+        "Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "L501F",
+        "Linha": "P. ALEGRE - ELDORADO DO SUL/CENTRO NOVO",
+        "Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "M105",
+        "Linha": "TRANSVERSAL METROPOLITANA 5 VIA AEROPORTO",
+        "Raiz": "M105",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "R860",
+        "Linha": "GUAIBA/FLORIDA - ELDORADO DO SUL /VIA SS",
+        "Raiz": "R860",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "R862",
+        "Linha": "GUAIBA - BOM RETIRO /VIA LG",
+        "Raiz": "R862",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "R863",
+        "Linha": "GUAIBA - BOM RETIRO /VIA FSM",
+        "Raiz": "R863",
+        "Modal": "CM"
+    },
+    {
+        "Codigo": "A131B",
+        "Linha": "ALIMENTADORA COLINA",
+        "Raiz": "A131B",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A153A",
+        "Linha": "ALIMENTADORA JARDIM DOS LAGOS",
+        "Raiz": "A153A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A153B",
+        "Linha": "ALIMENTADORA BOM FIM",
+        "Raiz": "A153A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A154A",
+        "Linha": "ALIMENTADORA SÃO FRANCISCO",
+        "Raiz": "A154A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A161",
+        "Linha": "ALIMENTADORA SÃO JORGE",
+        "Raiz": "A161",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A161A",
+        "Linha": "ALIMENTADORA PASSO FUNDO",
+        "Raiz": "A161",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A162A",
+        "Linha": "ALIMENTADORA PEDRAS BRANCAS",
+        "Raiz": "A162A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A162B",
+        "Linha": "ALIMENTADORA PARQUE 35",
+        "Raiz": "A162A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A501",
+        "Linha": "ALIMENTADORA SANS SOUCI",
+        "Raiz": "A501A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "A501A",
+        "Linha": "ALIMENTADORA CENTRO NOVO",
+        "Raiz": "A501A",
+        "Modal": "IO"
+    },
+    {
+        "Codigo": "L121C",
+        "Linha": "P. ALEGRE - SANTA RITA /VIA CB (SD EXECUTIVO)",
+        "Raiz": "L121C",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L131B",
+        "Linha": "P. ALEGRE - COLINA /VIA CB (SD EXECUTIVO)",
+        "Raiz": "L131B",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L131D",
+        "Linha": "P. ALEGRE - FATIMA /VIA CB (SD EXECUTIVO)",
+        "Raiz": "L131B",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L151E",
+        "Linha": "P. ALEGRE - FLORIDA /VIA CB/PRB (SD EXECUTIVO)",
+        "Raiz": "L151G",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L151F",
+        "Linha": "P. ALEGRE - FLORIDA /VIA GE/PB (SD EXECUTIVO)",
+        "Raiz": "L151G",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L151G",
+        "Linha": "P. ALEGRE - FLORIDA /VIA CB/ML (SD EXECUTIVO)",
+        "Raiz": "L151G",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L500C",
+        "Linha": "P. ALEGRE - SANS SOUCI /VIA CB (SD EXECUTIVO)",
+        "Raiz": "L500C",
+        "Modal": "SD"
+    },
+    {
+        "Codigo": "L501G",
+        "Linha": "P. ALEGRE - ELDORADO DO SUL /VIA ME (SD EXECUTIVO)",
+        "Raiz": "L501G",
+        "Modal": "SD"
+    }
+]
