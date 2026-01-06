@@ -1,11 +1,10 @@
 import io
 import re
 import traceback
-import sys
-import locale
 from datetime import date
 import calendar
-import json
+from utils import json_utils
+from utils import format
 import xml.etree.ElementTree as ET
 import streamlit as st
 import pandas as pd
@@ -18,20 +17,7 @@ from copy import copy
 # ---------------------------------------------------------
 # FUNÇÕES
 # ---------------------------------------------------------
-def arredondar_decimais(df):
-    colunas_2_decimais = [
-        "Indice VG OF Realizadas",
-        "Indice Pontualidade",
-        "Desemp. VG Interromp",
-        "Idade Media",
-        "Indice Quebra",
-        "Indice Desv. Itinerário",
-        "Indice Acidentes"
-    ]
 
-    df[colunas_2_decimais] = (df[colunas_2_decimais].astype(float).round(2))
-
-    return df
 
 def atualizar_dados(df):
     def safe_div(a, b):
@@ -151,11 +137,8 @@ def ler_detalhado():
 
 def ler_frota():
     # Ler o arquivo matriz da frota
-    with open('config.json', 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    
-    with open(config["agergs"]["frota"], 'r', encoding='utf-8') as arq_frota:
-        frota = json.load(arq_frota)
+    config = json_utils.ler_json('config.json')
+    frota = json_utils.ler_json(config["agergs"]["frota"])
 
     df = pd.DataFrame(frota)
     df['Aquisição'] = pd.to_datetime(df['Aquisição'], format="%d/%m/%Y")
@@ -166,11 +149,8 @@ def ler_frota():
 
 def ler_linhas():
     # Ler o arquivo matriz das linhas
-    with open('config.json', 'r', encoding='utf-8') as f:
-        config = json.load(f)
-
-    with open(config["agergs"]["linhas"], 'r', encoding='utf-8') as arq_linhas:
-        linhas = json.load(arq_linhas)
+    config = json_utils.ler_json('config.json')
+    linhas = json_utils.ler_json(config["agergs"]["linhas"])
 
     df = pd.DataFrame(linhas)
     return df
@@ -297,7 +277,17 @@ def gerar_resumo():
 
     df_base = df_base[ordem_final]
 
-    return arredondar_decimais(df_base)
+    colunas_2_decimais = [
+        "Indice VG OF Realizadas",
+        "Indice Pontualidade",
+        "Desemp. VG Interromp",
+        "Idade Media",
+        "Indice Quebra",
+        "Indice Desv. Itinerário",
+        "Indice Acidentes"
+    ]
+
+    return format.arredondar_decimais(df_base, colunas_2_decimais)
 
 def gerar_xml(df):
     # Formato algumas colunas para duas casas decimais. 301, 304, 306, 308, 309, 310, 314
@@ -521,7 +511,16 @@ if st.session_state.get("mostrar_resumo", False):
         with col3:
             # 2) BOTÃO — só ativa o gatilho
             if st.button("🔄 Atualizar dados"):
-                st.session_state.df = arredondar_decimais(df_editado)
+                colunas_2_decimais = [
+                    "Indice VG OF Realizadas",
+                    "Indice Pontualidade",
+                    "Desemp. VG Interromp",
+                    "Idade Media",
+                    "Indice Quebra",
+                    "Indice Desv. Itinerário",
+                    "Indice Acidentes"
+                ]
+                st.session_state.df = format.arredondar_decimais(df_editado)
                 st.session_state["recalcular"] = True
                 st.rerun()
 
@@ -538,8 +537,16 @@ if st.session_state.get("mostrar_resumo", False):
     if st.session_state.get("recalcular", False):
         
         df = atualizar_dados(st.session_state.df.copy()) # Atualizar os dados
-
-        st.session_state.df = arredondar_decimais(df)
+        colunas_2_decimais = [
+            "Indice VG OF Realizadas",
+            "Indice Pontualidade",
+            "Desemp. VG Interromp",
+            "Idade Media",
+            "Indice Quebra",
+            "Indice Desv. Itinerário",
+            "Indice Acidentes"
+        ]
+        st.session_state.df = format.arredondar_decimais(df)
         st.session_state["recalcular"] = False
         st.rerun()
     

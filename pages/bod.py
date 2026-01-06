@@ -10,6 +10,8 @@ from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
 from copy import copy
+from utils import json_utils
+from utils import format
 
 def viagens_expressas():
     exp = pd.read_csv(up_expressas, sep=';', encoding='Windows-1252', skiprows=2) # Pula as 2 primeiras linhas
@@ -154,25 +156,16 @@ def matriz_bod(arq):
 
     return df_matriz
 
-def copiar_estilo(ws, origem, destino):
-    for col in range(1, ws.max_column + 1):
-        cel_origem = ws.cell(row=origem, column=col)
-        cel_destino = ws.cell(row=destino, column=col)
-        cel_destino._style = cel_origem._style
-
-def formatar_valor(valor, moeda=False):
-    formatado = "{:,.2f}".format(valor)
-    if moeda:
-        return "R$ " + formatado.replace(",", "v").replace(".", ",").replace("v", ".")
-    else:
-        return formatado.replace(",", "v").replace(".", ",").replace("v", ".").replace(",00", "")
-    
-    
 # Configuração da página
 st.set_page_config(layout="wide")
 
+# Lê arquivo de configuração
+config = json_utils.ler_json("config.json")
+
+st.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
+
 # Colunas
-col1, col2, col3 = st.columns([3, 3, 2], vertical_alignment='top')
+col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
 
 with col1:
     # Upload do arquivo de viagens expressas
@@ -185,6 +178,11 @@ with col2:
     up_linhas = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=2)
 
 with col3:
+    # Upload do arquivo PLE
+    st.subheader("PLE")
+    up_ple = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=3)    
+
+with col4:
     # KM mensal
     st.subheader("KM Mensal")
     km = st.number_input("KM", value=0)
@@ -205,13 +203,13 @@ if botao:
             st.warning("Arquivo de dados das linhas não foi selecionado!", icon=":material/error_outline:")        
             st.stop()
 
+        if up_ple is None:
+            st.warning("Arquivo PLE não foi selecionado!", icon=":material/error_outline:")
+            st.stop()
+
         if (km is None) or (km <= 0):
             st.warning("KM mensal não está de acordo!", icon=":material/error_outline:")
             st.stop()
-
-        # Abrindo e lendo o arquivo de configuração JSON para pegar os modelos
-        with open('config.json', 'r', encoding='utf-8') as arq_conf:
-            config = json.load(arq_conf)
 
         # Processando
         progresso = st.empty()
@@ -462,8 +460,8 @@ if botao:
         
         # Monta tabela comparativa
         tabela = pd.DataFrame({
-             'Total BOD': pd.Series([formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
-             'Total ATM': pd.Series([formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
+             'Total BOD': pd.Series([format.formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
+             'Total ATM': pd.Series([format.formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
         })
 
         # Adiciona a coluna de verificação
