@@ -76,6 +76,41 @@ def dados_transnet():
     
     return linhas
 
+def dados_PLE():
+    ple = pd.read_csv(up_ple, sep=';', encoding='Windows-1252')
+
+    # Excluir a coluna 'Unnamed: 8' se existir
+    if 'Unnamed: 8' in ple.columns:
+        ple = ple.drop(columns=['Unnamed: 8'])
+
+    # Exclui colunas desnecessárias
+    columns_to_drop = ['Código Operadora', 'Nome Operadora', 'Cartão', 'Estudante']
+    ple = ple.drop(columns=columns_to_drop)
+
+    # Formatar a coluna 'Valor' para numérico, substituindo vírgulas por pontos
+    ple['Valor'] = ple['Valor'].str.replace(',', '.', regex=False).astype(float)
+
+    ple = ple.rename(columns={'Data do Uso': 'Data', 'Linha': 'TEU'})
+    
+    # Agrupamento por código da linha e soma valor
+    df_grouped = ple.groupby(['TEU'])['Valor'].agg(['sum', 'count']).reset_index()
+    df_grouped.columns = ['TEU', 'Valor_sum', 'Valor_count']
+
+    # Linhas com os códigos da bilhetagem
+    df_linhas_teu = json_utils.ler_json("linhas_teu.json")
+
+    df_grouped = pd.merge(df_grouped, df_linhas_teu, on='TEU', how='left')
+    df_grouped = df_grouped[['TEU', 'MET', 'Valor_sum', 'Valor_count']]
+    df_grouped = df_grouped.sort_values(by='MET').reset_index(drop=True)
+
+    # Check for rows where 'MET' is NaN (meaning no match was found in df_json)
+    missing_met = df_grouped[df_grouped['MET'].isna()]
+
+    if not missing_met.empty:
+        st.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas_teu.json: {missing_met}")
+
+    return df_grouped
+
 def matriz_bod(arq):
     # Viagens expressas
     progresso.info("Lendo viagens expressas...")
@@ -85,6 +120,10 @@ def matriz_bod(arq):
     progresso.info("Lendo dados das linhas...")
     df_transnet = dados_transnet()
 
+    # Dados PLE
+    progresso.info("Lendo dados PLE's...")
+    df_ple = dados_PLE()
+
     # Lendo a matriz BOD
     progresso.info("Lendo matriz...")
     df_matriz = pd.read_excel(arq, sheet_name='MATRIZ', decimal=',')
@@ -92,7 +131,12 @@ def matriz_bod(arq):
     # Verifica se tem alguma linha no Transnet e na matriz não
     divergencia = df_transnet[~df_transnet['COD'].isin(df_matriz['COD'])]['COD']
     if not divergencia.empty:
-        st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia.tolist()}")
+        st.warning(f"⚠️ As seguintes linhas do arquivo do Transnet não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia.tolist()}")
+
+    # Verifica se tem alguma linha nos dados PLE e na matriz não
+    divergencia_ple = df_ple[~df_ple['MET'].isin(df_matriz['COD'])]['COD']
+    if not divergencia_ple.empty:
+        st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
     progresso.info("Preparando matriz...")
     df_matriz["ANO"] = df_matriz["ANO"].fillna(df_transnet["ANO"].iloc[0]).astype(int) # Ano
@@ -120,6 +164,27 @@ def matriz_bod(arq):
     progresso.info("Inserindo viagens expressas...")
     df_matriz.loc[df_exp.index, 'VR_EXP'] = df_exp['Qt.Viagens']
 
+    # ---------- Código NOVO
+    # 1) Trazer a coluna C do df_ple para o df_matriz
+    df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], on="COD", how="left")
+
+    # 2) Calcular o total de D por A
+    df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
+
+    # 3) Proporção de cada linha
+    df_matriz["proporcao"] = df_matriz["PASS_COM"] / df_matriz["peso_total"]
+
+    # 4) Preencher a coluna E existente com o rateio
+    df_matriz["PASS_LIVRE"] = df_matriz["Valor_count"] * df_matriz["proporcao"]
+    df_matriz["REC_TAR_LIVRE"] = df_matriz["Valor_sum"] * df_matriz["proporcao"]
+
+    # 5) Restaurar o índice original (A, B)
+    df_matriz = df_matriz.set_index(["COD", "SENT"])
+
+    # 6) Remover colunas auxiliares
+    df_matriz = df_matriz.drop(columns=["peso_total", "proporcao"])
+
+
     # Preenchendo colunas
     progresso.info("Inserindo informações...")
     df_matriz.loc[df_matriz['TAR_MAX_COM'] == 0, 'TAR_MAX_COM'] = df_matriz['TMCOM'] # Tárifa máxima comum
@@ -131,10 +196,12 @@ def matriz_bod(arq):
     df_matriz["VR_SIMP"] = df_matriz["VGR"] # Viagens normais
     df_matriz["PASS_COM"] = df_matriz['TEU_VT'] + df_matriz['TEU_BIL'] + df_matriz['DIN'] # Passageiro comum
     df_matriz["PASS_ESC"] = df_matriz['ESC'] # Passageiro escolar
+    #df_matriz["PASS_LIVRE"] = 1 # Passageiro PLE (passe livre estudantil)
     df_matriz["PASS_ISE"] = (df_matriz['ISE'] + (df_matriz['TX_ISE'] * (df_matriz['TEU_VT'] + df_matriz['TEU_BIL'] + df_matriz['DIN'] + df_matriz['ESC'] + df_matriz['INT_TEU'] + df_matriz['INT_TAL'] + df_matriz['BAL']))).round() # Passageiro isento
     df_matriz["PASS_INT_ROD"] = df_matriz['INT_TEU'] + df_matriz['INT_TAL'] # Passageiro int rodov
     df_matriz["REC_TAR_COM"] = df_matriz['TEU_VT_R$'] + df_matriz['TEU_BIL_R$'] + df_matriz['DIN_R$'] + df_matriz['INT_R$'] # Receita tarifa comum
     df_matriz["REC_TAR_ESC"] = df_matriz['ESC_R$'] # Receita tarifa escolar
+    #df_matriz["REC_TAR_LIVRE"] = df_matriz['ESC_R$'] # Receita tarifa PLE (passe livre estudantil)
     
     # Colunas/variáveis temporárias para cálculos das próximas colunas
     progresso.info("Calculando colunas...")
