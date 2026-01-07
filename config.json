@@ -1,37 +1,37 @@
 {
-  "bod_local": {
-  "diretorio": "\\\\10.10.10.1\\fileserver\\tecnologia\\rogerio.piccoli\\BOD",
-  "modelo_bod": "//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_BOD.xlsx",
-  "modelo_metroplan": "//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_Metroplan.xlsx",
-  "modelo_pdo": "'//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_PDO.xlsx'",
-  "periodo": "",
-  "bod_km_linhas_1": 110440.24999999999,
-  "bod_km_linhas_2": 111112.73000000001,
-  "bod_km_tm5_1": 2394.0,
-  "bod_km_tm5_2": 2394.0,
-  "bod_isentos_linhas_1": 14989.0,
-  "bod_isentos_linhas_2": 14905.0,
-  "bod_isentos_tm5_1": 229.0,
-  "bod_isentos_tm5_2": 125.0
-  },
-  "bod": {
-  "modelo_bod": "Modelo_BOD.xlsx",
-  "modelo_metroplan": "Modelo_Metroplan.xlsx",
-  "periodo": "11/2025",
-  "bod_km_linhas_1": 110440.24999999999,
-  "bod_km_linhas_2": 111112.73000000001,
-  "bod_km_tm5_1": 2394.0,
-  "bod_km_tm5_2": 2394.0,
-  "bod_isentos_linhas_1": 14989.0,
-  "bod_isentos_linhas_2": 14905.0,
-  "bod_isentos_tm5_1": 229.0,
-  "bod_isentos_tm5_2": 125.0
-  },
-  "pdo": {
-    "modelo_pdo": "'Modelo_PDO.xlsx'"
-  },
-  "agergs": {
-    "frota": "frota_agergs.json",
-    "linhas": "linhas_agergs.json"
-  }
+    "bod_local": {
+        "diretorio": "\\\\10.10.10.1\\fileserver\\tecnologia\\rogerio.piccoli\\BOD",
+        "modelo_bod": "//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_BOD.xlsx",
+        "modelo_metroplan": "//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_Metroplan.xlsx",
+        "modelo_pdo": "'//10.10.10.1/fileserver/tecnologia/rogerio.piccoli/BOD/Modelos/Modelo_PDO.xlsx'",
+        "periodo": "",
+        "bod_km_linhas_1": 110440.24999999999,
+        "bod_km_linhas_2": 111112.73000000001,
+        "bod_km_tm5_1": 2394.0,
+        "bod_km_tm5_2": 2394.0,
+        "bod_isentos_linhas_1": 14989.0,
+        "bod_isentos_linhas_2": 14905.0,
+        "bod_isentos_tm5_1": 229.0,
+        "bod_isentos_tm5_2": 125.0
+    },
+    "bod": {
+        "modelo_bod": "Modelo_BOD.xlsx",
+        "modelo_metroplan": "Modelo_Metroplan.xlsx",
+        "periodo": "12/2025",
+        "bod_km_linhas_1": 119244.335,
+        "bod_km_linhas_2": 120229.15,
+        "bod_km_tm5_1": 2646.0,
+        "bod_km_tm5_2": 2646.0,
+        "bod_isentos_linhas_1": 15194.0,
+        "bod_isentos_linhas_2": 15006.0,
+        "bod_isentos_tm5_1": 171.0,
+        "bod_isentos_tm5_2": 111.0
+    },
+    "pdo": {
+        "modelo_pdo": "'Modelo_PDO.xlsx'"
+    },
+    "agergs": {
+        "frota": "frota_agergs.json",
+        "linhas": "linhas_agergs.json"
+    }
 }

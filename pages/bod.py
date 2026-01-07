@@ -77,7 +77,7 @@ def dados_transnet():
     return linhas
 
 def dados_PLE():
-    ple = pd.read_csv(up_ple, sep=';', encoding='Windows-1252')
+    ple = pd.read_csv(up_ple, sep=';')
 
     # Excluir a coluna 'Unnamed: 8' se existir
     if 'Unnamed: 8' in ple.columns:
@@ -97,7 +97,8 @@ def dados_PLE():
     df_grouped.columns = ['TEU', 'Valor_sum', 'Valor_count']
 
     # Linhas com os códigos da bilhetagem
-    df_linhas_teu = json_utils.ler_json("linhas_teu.json")
+    df_linhas_teu = pd.DataFrame(json_utils.ler_json("linhas_teu.json"))
+    df_linhas_teu["TEU"] = pd.to_numeric(df_linhas_teu["TEU"], errors="coerce") # Converto para numeric
 
     df_grouped = pd.merge(df_grouped, df_linhas_teu, on='TEU', how='left')
     df_grouped = df_grouped[['TEU', 'MET', 'Valor_sum', 'Valor_count']]
@@ -133,8 +134,9 @@ def matriz_bod(arq):
     if not divergencia.empty:
         st.warning(f"⚠️ As seguintes linhas do arquivo do Transnet não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia.tolist()}")
 
+
     # Verifica se tem alguma linha nos dados PLE e na matriz não
-    divergencia_ple = df_ple[~df_ple['MET'].isin(df_matriz['COD'])]['COD']
+    divergencia_ple = df_ple[~df_ple['MET'].isin(df_matriz['COD'])]['MET']
     if not divergencia_ple.empty:
         st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
@@ -166,7 +168,9 @@ def matriz_bod(arq):
 
     # ---------- Código NOVO
     # 1) Trazer a coluna C do df_ple para o df_matriz
-    df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], on="COD", how="left")
+    #df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], on="MET", how="left")
+    df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], left_on="COD", right_on="MET", how="left")
+
 
     # 2) Calcular o total de D por A
     df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
@@ -318,12 +322,13 @@ if botao:
         buffer_met = BytesIO() 
         wb_met.save(buffer_met) 
         buffer_met.seek(0)
+        st.session_state["buffer_met"] = buffer_met
         
         ws = None
         wb_met = None
 
         # ✳️ Preencher planilha BOD ERG ✳️
-        wb_erg = load_workbook(config['modelo_bod'])
+        wb_erg = load_workbook(config['bod']['modelo_bod'])
 
         # 1️⃣ [BOD]
         progresso.info("Preenchendo planilha BOD [BOD]...")
@@ -355,9 +360,7 @@ if botao:
         config['bod']['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
         config['bod']['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
         config['bod']['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
-
-        with open('config.json', 'w', encoding='utf-8') as arq_conf:
-            json.dump(config, arq_conf, indent=2, ensure_ascii=False)
+        json_utils.salvar_json(config, 'config.json')
 
         # 2️⃣ [SINTETICO]
         progresso.info("Preenchendo planilha BOD [SINTETICO]...")
@@ -491,6 +494,7 @@ if botao:
         progresso.info("Salvando BOD ERG...")
         wb_erg.remove(wb_erg["MATRIZ"])
         wb_erg.active = wb_erg.sheetnames.index('BOD')
+
         for aba in wb_erg.worksheets:
             aba.sheet_view.tabSelected = (aba.title == 'BOD')
         
@@ -498,22 +502,7 @@ if botao:
         buffer_erg = BytesIO() 
         wb_erg.save(buffer_erg)
         buffer_erg.seek(0)
-
-        # ✳️ Downloads ✳️
-        st.sidebar.download_button( 
-            label="Baixar BOD Metroplan", 
-            data=buffer_met, 
-            file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-            )
-
-        st.sidebar.download_button( 
-            label="Baixar BOD ERG", 
-            data=buffer_erg, 
-            file_name= fr"BOD {mes:02}.{ano}.xlsx", 
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-            )
-
+        st.session_state["buffer_erg"] = buffer_erg
 
         # ✳️ Comparativos de valores ✳️
         df_soma['VT'] = df_soma['VT'] + df_soma['PL']
@@ -549,6 +538,8 @@ if botao:
 
         progresso.success("Processo concluído!")
 
+        st.session_state["mostrar_downloads"] = True
+
     except Exception as e:    
         st.error(f"🐞 Erro: {traceback.format_exc()}")
 
@@ -571,5 +562,18 @@ if botao:
         up_linhas = None
         progress_text = None    
 
+# ✳️ Downloads ✳️
+if st.session_state.get("mostrar_downloads", False):
+    st.sidebar.download_button( 
+        label="Baixar BOD Metroplan", 
+        data= st.session_state["buffer_met"], 
+        file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+        )
 
-
+    st.sidebar.download_button( 
+        label="Baixar BOD ERG", 
+        data=st.session_state["buffer_erg"], 
+        file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+        )
