@@ -92,16 +92,14 @@ def dados_PLE():
 
     ple = ple.rename(columns={'Data do Uso': 'Data', 'Linha': 'TEU'})
     
-    # Agrupamento por código da linha e soma valor
-    df_grouped = ple.groupby(['TEU'])['Valor'].agg(['sum', 'count']).reset_index()
-    df_grouped.columns = ['TEU', 'Valor_sum', 'Valor_count']
-
     # Linhas com os códigos da bilhetagem
     df_linhas_teu = pd.DataFrame(json_utils.ler_json("linhas_teu.json"))
     df_linhas_teu["TEU"] = pd.to_numeric(df_linhas_teu["TEU"], errors="coerce") # Converto para numeric
 
-    df_grouped = pd.merge(df_grouped, df_linhas_teu, on='TEU', how='left')
-    df_grouped = df_grouped[['TEU', 'MET', 'Valor_sum', 'Valor_count']]
+    ple = ple.merge(df_linhas_teu[['TEU', 'MET']], on='TEU', how='left')
+
+    # Agrupamento por código da linha e soma valor
+    df_grouped = ple.groupby(['MET'])['Valor'].agg(['sum', 'count']).reset_index()
     df_grouped = df_grouped.sort_values(by='MET').reset_index(drop=True)
 
     # Check for rows where 'MET' is NaN (meaning no match was found in df_json)
@@ -153,7 +151,7 @@ def matriz_bod(arq):
     df_temp[colunas_int] = df_temp[colunas_int].apply(lambda col: pd.to_numeric(col, errors='coerce')).astype('Int64')
     df_temp[colunas_float] = df_temp[colunas_float].apply(lambda col: pd.to_numeric(col, errors='coerce')).astype(float)
     
-    # Merge
+    # Merge com os dados do Transnet
     df_matriz = pd.merge(df_matriz, df_temp, on=['COD', 'SENT'], how='left')
     df_matriz.iloc[:,34:50] = df_matriz.iloc[:,34:50].fillna(0) # Prenche com 0 as colunas novas com NaN
 
@@ -166,29 +164,6 @@ def matriz_bod(arq):
     progresso.info("Inserindo viagens expressas...")
     df_matriz.loc[df_exp.index, 'VR_EXP'] = df_exp['Qt.Viagens']
 
-    # ---------- Código NOVO
-    # 1) Trazer a coluna C do df_ple para o df_matriz
-    #df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], on="MET", how="left")
-    df_matriz = df_matriz.reset_index().merge(df_ple[["MET", "Valor_count", "Valor_sum"]], left_on="COD", right_on="MET", how="left")
-
-
-    # 2) Calcular o total de D por A
-    df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
-
-    # 3) Proporção de cada linha
-    df_matriz["proporcao"] = df_matriz["PASS_COM"] / df_matriz["peso_total"]
-
-    # 4) Preencher a coluna E existente com o rateio
-    df_matriz["PASS_LIVRE"] = df_matriz["Valor_count"] * df_matriz["proporcao"]
-    df_matriz["REC_TAR_LIVRE"] = df_matriz["Valor_sum"] * df_matriz["proporcao"]
-
-    # 5) Restaurar o índice original (A, B)
-    df_matriz = df_matriz.set_index(["COD", "SENT"])
-
-    # 6) Remover colunas auxiliares
-    df_matriz = df_matriz.drop(columns=["peso_total", "proporcao"])
-
-
     # Preenchendo colunas
     progresso.info("Inserindo informações...")
     df_matriz.loc[df_matriz['TAR_MAX_COM'] == 0, 'TAR_MAX_COM'] = df_matriz['TMCOM'] # Tárifa máxima comum
@@ -200,12 +175,10 @@ def matriz_bod(arq):
     df_matriz["VR_SIMP"] = df_matriz["VGR"] # Viagens normais
     df_matriz["PASS_COM"] = df_matriz['TEU_VT'] + df_matriz['TEU_BIL'] + df_matriz['DIN'] # Passageiro comum
     df_matriz["PASS_ESC"] = df_matriz['ESC'] # Passageiro escolar
-    #df_matriz["PASS_LIVRE"] = 1 # Passageiro PLE (passe livre estudantil)
     df_matriz["PASS_ISE"] = (df_matriz['ISE'] + (df_matriz['TX_ISE'] * (df_matriz['TEU_VT'] + df_matriz['TEU_BIL'] + df_matriz['DIN'] + df_matriz['ESC'] + df_matriz['INT_TEU'] + df_matriz['INT_TAL'] + df_matriz['BAL']))).round() # Passageiro isento
     df_matriz["PASS_INT_ROD"] = df_matriz['INT_TEU'] + df_matriz['INT_TAL'] # Passageiro int rodov
     df_matriz["REC_TAR_COM"] = df_matriz['TEU_VT_R$'] + df_matriz['TEU_BIL_R$'] + df_matriz['DIN_R$'] + df_matriz['INT_R$'] # Receita tarifa comum
     df_matriz["REC_TAR_ESC"] = df_matriz['ESC_R$'] # Receita tarifa escolar
-    #df_matriz["REC_TAR_LIVRE"] = df_matriz['ESC_R$'] # Receita tarifa PLE (passe livre estudantil)
     
     # Colunas/variáveis temporárias para cálculos das próximas colunas
     progresso.info("Calculando colunas...")
@@ -217,6 +190,21 @@ def matriz_bod(arq):
     # Colunas normais que necessitam dos cálculos acima
     df_matriz['EXTP_DESL'] = round(df_matriz['KM_PROP'] * comb_desloc, 2)
     df_matriz['VR_DESL'] = round(df_matriz['EXTP_DESL'] / df_matriz['KM_OSC'])
+
+    # ---------- PLE ----------
+    # Merge com o df_ple
+    df_matriz = df_matriz.reset_index().merge(df_ple, left_on="COD", right_on="MET", how="left")
+
+    # Proporção de cada linha
+    df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
+    df_matriz["proporcao"] = df_matriz["PASS_COM"] / df_matriz["peso_total"]
+
+    # Preencher com o rateio
+    df_matriz["PASS_LIVRE"] = (df_matriz["count"] * df_matriz["proporcao"]).fillna(0).round(0)
+    df_matriz["REC_TAR_LIVRE"] = (df_matriz["sum"] * df_matriz["proporcao"]).fillna(0).round(2)
+
+    # Remover colunas auxiliares
+    df_matriz = df_matriz.drop(columns=["peso_total", "proporcao"])
 
     df_matriz.reset_index(inplace=True) # Reseto os índices
     df_matriz = df_matriz[ordem_colunas] # Reorganizo as colunas
@@ -539,6 +527,8 @@ if botao:
         progresso.success("Processo concluído!")
 
         st.session_state["mostrar_downloads"] = True
+        st.session_state["ano"] = ano
+        st.session_state["mes"] = mes
 
     except Exception as e:    
         st.error(f"🐞 Erro: {traceback.format_exc()}")
@@ -564,6 +554,9 @@ if botao:
 
 # ✳️ Downloads ✳️
 if st.session_state.get("mostrar_downloads", False):
+    ano = st.session_state["ano"]
+    mes = st.session_state["mes"]
+
     st.sidebar.download_button( 
         label="Baixar BOD Metroplan", 
         data= st.session_state["buffer_met"], 
@@ -574,6 +567,7 @@ if st.session_state.get("mostrar_downloads", False):
     st.sidebar.download_button( 
         label="Baixar BOD ERG", 
         data=st.session_state["buffer_erg"], 
-        file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+        #file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+        file_name= fr"BOD.xlsx", 
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
         )
