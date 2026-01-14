@@ -98,9 +98,20 @@ if botao:
 
             st.write("Tratando os dados do desempenho diário das linhas...")
 
-            status.update(label="Arquivo gerado com sucesso!", state="complete", expanded=False)
+
+            status.update(label="Processo terminado!", state="complete", expanded=False)
+
+        st.success("Arquivo gerado com sucesso!")
+
+        # Botões
+        col1, col2, col3 = st.columns([1,1,5], vertical_alignment='top')
+        with col1:
+            st.download_button(label="📥 Baixar PDO ERG", data="conteúdo do arquivo", file_name="relatorio.csv", mime="text/csv")
+        with col2:     
+            st.download_button(label="📥 Baixar PDO TM5", data="conteúdo do arquivo", file_name="relatorio.csv", mime="text/csv")
 
 
-    except Exception as e:    
+    except Exception as e:  
+        status.update(label="Erro durante o processamento!", state="error")  
         st.error(f"🐞 Erro: {traceback.format_exc()}")
        
