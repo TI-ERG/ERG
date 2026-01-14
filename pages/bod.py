@@ -11,7 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
 from copy import copy
 from utils import json_utils
-from utils import format
+from utils import format_utils
 
 def viagens_expressas():
     exp = pd.read_csv(up_expressas, sep=';', encoding='Windows-1252', skiprows=2) # Pula as 2 primeiras linhas
@@ -245,7 +245,6 @@ with col4:
     # KM mensal
     st.subheader("KM Mensal")
     km = st.number_input("KM", value=0)
-
 
 botao = st.sidebar.button("Iniciar", type="primary")
 
@@ -504,8 +503,8 @@ if botao:
         
         # Monta tabela comparativa
         tabela = pd.DataFrame({
-             'Total BOD': pd.Series([format.formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
-             'Total ATM': pd.Series([format.formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
+             'Total BOD': pd.Series([format_utils.formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
+             'Total ATM': pd.Series([format_utils.formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
         })
 
         # Adiciona a coluna de verificação

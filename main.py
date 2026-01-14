@@ -22,8 +22,8 @@ st.sidebar.write(f"Versão do sistema: {versao}")
 
 pages = {
     "Exportação de Arquivos": [
-        st.Page("pages/bod.py", title="Boletim Oferta e Demanada", icon="📄"),
-        st.Page("pages/pdo.py", title="Dados Operacionais", icon="📄"),
+        st.Page("pages/bod.py", title="[BOD] Boletim Oferta e Demanda", icon="📄"),
+        st.Page("pages/pdo.py", title="[PDO] Dados Operacionais", icon="📄"),
         st.Page("pages/agergs.py", title="Indicadores AGERGS", icon="📄")
     ]
 }
