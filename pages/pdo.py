@@ -12,12 +12,8 @@ from openpyxl.utils import get_column_letter
 from utils import json_utils
 from utils import files_utils
 
-
 # Configuração da página
 st.set_page_config(layout="wide")
-
-# Lê arquivo de configuração
-config = json_utils.ler_json("config.json")
 
 # Layout
 with st.container():
@@ -26,12 +22,12 @@ with st.container():
     with col1:
         # Upload do arquivo de dados de passageiros
         st.subheader("Dados de passageiros")
-        up_passageiros = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=1)
+        up_passageiros = st.file_uploader("Arquivo Relatório Desempenho Diário das Linhas.csv", type='csv', key=1)
         
     with col2:
         # Upload do arquivo dos dados das viagens
         st.subheader("Dados de viagens")
-        up_viagens = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=2)
+        up_viagens = st.file_uploader("Arquivo Relatório Controle Operacional Detalhado por Linha.csv", type='csv', key=2)
 
     with col3:
         # Upload da planilha para conferência das viagens
@@ -69,24 +65,40 @@ if botao:
     try:
         # Verificações de seleção dos arquivos
         if up_passageiros is None:
-            st.warning("Arquivo de dados dos passageiros não foi selecionado!", icon=":material/error_outline:")
+            st.warning("Arquivo Relatório Desempenho Diário das Linhas não foi selecionado!", icon=":material/error_outline:")
             st.stop()
 
         if up_viagens is None:
-            st.warning("Arquivo de dados das viagens não foi selecionado!", icon=":material/error_outline:")        
+            st.warning("Arquivo Relatório Controle Operacional Detalhado por Linha!", icon=":material/error_outline:")        
             st.stop()
 
         if up_conferencia is None:
             st.warning("Planilha para conferência não foi selecionada!", icon=":material/error_outline:")
             st.stop()
 
-        df = files_utils.ler_detalhado_linha(up_viagens)
-        
-        # Dropa colunas desnecessárias
-        columns_to_drop = ['Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Docmto', 'Motorista', 'Cobrador','Km_h', 'Meta', 'CVg2', 'TipoViagem']
-        df = df.drop(columns=columns_to_drop)
-        
-        st.write(df)
+        with st.status("Processando...", expanded=True) as status:
+            st.write("Lendo arquivos...")
+            # Lê arquivo de configuração
+            config = json_utils.ler_json("config.json")
+            # Lê matriz de linhas
+            df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"]))
+            # Lê arquivo detalhado por linha
+            df_det = files_utils.ler_detalhado_linha(up_viagens)
+            # Lê arquivo desempenho diário das linhas
+
+            st.write("Tratando os dados do controle operacional detalhado por linha...")
+            # Dropa colunas desnecessárias
+            columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Sent.1', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
+            df_det = df_det.drop(columns=columns_to_drop)
+            # Merge com arquivo de linhas para ter a modalidade/serviço
+            df_det = df_det.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
+            df_det = df_det.drop(columns=["Cod_Met"])
+            # Exclui viagens que NÃO TEM passageiros (possíveis erros de digitação)
+            df_det_filtrado = df_det[~(df_det["Passag"].isna() & (df_det["Observacao"].str.strip() != "Furo de Viagem"))]
+
+            st.write("Tratando os dados do desempenho diário das linhas...")
+
+            status.update(label="Arquivo gerado com sucesso!", state="complete", expanded=False)
 
 
     except Exception as e:    

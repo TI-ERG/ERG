@@ -57,7 +57,7 @@ def ler_detalhado():
     df = files_utils.ler_detalhado_linha(up_detalhado)
 
     # Dropa colunas desnecessárias
-    columns_to_drop = ['Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Docmto', 'Motorista', 'Cobrador','Km_h', 'Meta', 'CVg2', 'TipoViagem']
+    columns_to_drop = ['Sent', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Docmto', 'Motorista', 'Cobrador','Km_h', 'Meta', 'CVg2', 'TipoViagem']
     df = df.drop(columns=columns_to_drop)
 
     # Convert 'Veiculo', 'Passag', 'Oferta' and 'Dif' to numeric, coercing errors to NaN
@@ -80,7 +80,7 @@ def ler_detalhado():
 def ler_frota():
     # Ler o arquivo matriz da frota
     config = json_utils.ler_json('config.json')
-    frota = json_utils.ler_json(config["agergs"]["frota"])
+    frota = json_utils.ler_json(config["matrizes"]["frota"])
 
     df = pd.DataFrame(frota)
     df['Aquisição'] = pd.to_datetime(df['Aquisição'], format="%d/%m/%Y")
@@ -92,7 +92,7 @@ def ler_frota():
 def ler_linhas():
     # Ler o arquivo matriz das linhas
     config = json_utils.ler_json('config.json')
-    linhas = json_utils.ler_json(config["agergs"]["linhas"])
+    linhas = json_utils.ler_json(config["matrizes"]["linhas"])
 
     df = pd.DataFrame(linhas)
     return df
@@ -128,6 +128,8 @@ def gerar_resumo():
         maior100=('%Lotacao', lambda x: (x > 100.00).sum()),
         Idade=('Idade', 'sum')
     ).reset_index()
+
+    df_linhas = df_linhas.rename(columns={'Cod_Met': 'Codigo'})
 
     df_merged_with_linha_raiz = pd.merge(
         df_aggregated,
@@ -386,7 +388,7 @@ with st.container():
 
         st.subheader("Arquivo Transnet")
         up_detalhado = st.file_uploader(
-            "Relatório detalhado por linha (.CSV)",
+            "Relatório Controle Operacional Detalhado por Linha",
             type="csv",
             key="upload_detalhado"
         )
@@ -402,12 +404,9 @@ if gerar:
         st.stop()
 
     try:
-        with st.spinner("Processando dados, aguarde..."):
-            df_base = gerar_resumo()
-
+        df_base = gerar_resumo()
         # salva o df inicial
         st.session_state.df = df_base.copy()
-
         # ativa o modo resumo
         st.session_state["mostrar_resumo"] = True
 

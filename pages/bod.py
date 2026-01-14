@@ -13,7 +13,7 @@ from copy import copy
 from utils import json_utils
 from utils import format_utils
 
-def viagens_expressas():
+def rel_viagens_expressas():
     exp = pd.read_csv(up_expressas, sep=';', encoding='Windows-1252', skiprows=2) # Pula as 2 primeiras linhas
     exp = exp.drop(columns=exp.columns[4]) # Retira a coluna sem valores
 
@@ -49,7 +49,7 @@ def viagens_expressas():
 
     return exp
 
-def dados_transnet():
+def rel_metroplan():
     linhas = pd.read_csv(up_linhas, sep=';', encoding='Windows-1252')
     linhas = linhas.drop(linhas.columns[[2, 4, 5, 8, 9, 11, 12, 13, 15, 16, 30]], axis=1) # Retira colunas sem valores ou não usadas [EMP, R, NOME LINHA, EXTA, EXTB, TMESC, TMINT, LOTAÇÃO, KMROD, FRT]
     
@@ -90,34 +90,35 @@ def dados_PLE():
     # Formatar a coluna 'Valor' para numérico, substituindo vírgulas por pontos
     ple['Valor'] = ple['Valor'].str.replace(',', '.', regex=False).astype(float)
 
-    ple = ple.rename(columns={'Data do Uso': 'Data', 'Linha': 'TEU'})
+    ple = ple.rename(columns={'Data do Uso': 'Data', 'Linha': 'Cod_Bil'})
     
     # Linhas com os códigos da bilhetagem
-    df_linhas_teu = pd.DataFrame(json_utils.ler_json("linhas_teu.json"))
-    df_linhas_teu["TEU"] = pd.to_numeric(df_linhas_teu["TEU"], errors="coerce") # Converto para numeric
+    config = json_utils.ler_json('config.json')
+    df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"]))
+    df_linhas["Cod_Bil"] = pd.to_numeric(df_linhas["Cod_Bil"], errors="coerce") # Converto para numeric
 
-    ple = ple.merge(df_linhas_teu[['TEU', 'MET']], on='TEU', how='left')
+    ple = ple.merge(df_linhas[['Cod_Bil', 'Cod_Met']], on='Cod_Bil', how='left')
 
     # Agrupamento por código da linha e soma valor
-    df_grouped = ple.groupby(['MET'])['Valor'].agg(['sum', 'count']).reset_index()
-    df_grouped = df_grouped.sort_values(by='MET').reset_index(drop=True)
+    df_grouped = ple.groupby(['Cod_Met'])['Valor'].agg(['sum', 'count']).reset_index()
+    df_grouped = df_grouped.sort_values(by='Cod_Met').reset_index(drop=True)
 
     # Check for rows where 'MET' is NaN (meaning no match was found in df_json)
-    missing_met = df_grouped[df_grouped['MET'].isna()]
+    missing_met = df_grouped[df_grouped['Cod_Met'].isna()]
 
     if not missing_met.empty:
-        st.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas_teu.json: {missing_met}")
+        st.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas.json: {missing_met}")
 
     return df_grouped
 
 def matriz_bod(arq):
     # Viagens expressas
     progresso.info("Lendo viagens expressas...")
-    df_exp = viagens_expressas()
+    df_exp = rel_viagens_expressas()
     
     # Dados das linhas
     progresso.info("Lendo dados das linhas...")
-    df_transnet = dados_transnet()
+    df_transnet = rel_metroplan()
 
     # Dados PLE
     progresso.info("Lendo dados PLE's...")
@@ -132,9 +133,8 @@ def matriz_bod(arq):
     if not divergencia.empty:
         st.warning(f"⚠️ As seguintes linhas do arquivo do Transnet não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia.tolist()}")
 
-
     # Verifica se tem alguma linha nos dados PLE e na matriz não
-    divergencia_ple = df_ple[~df_ple['MET'].isin(df_matriz['COD'])]['MET']
+    divergencia_ple = df_ple[~df_ple['Cod_Met'].isin(df_matriz['COD'])]['Cod_Met']
     if not divergencia_ple.empty:
         st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
@@ -193,7 +193,7 @@ def matriz_bod(arq):
 
     # ---------- PLE ----------
     # Merge com o df_ple
-    df_matriz = df_matriz.reset_index().merge(df_ple, left_on="COD", right_on="MET", how="left")
+    df_matriz = df_matriz.reset_index().merge(df_ple, left_on="COD", right_on="Cod_Met", how="left")
 
     # Proporção de cada linha
     df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
@@ -229,22 +229,22 @@ col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
 with col1:
     # Upload do arquivo de viagens expressas
     st.subheader("Viagens expressas")
-    up_expressas = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=1)
+    up_expressas = st.file_uploader("Arquivo Relatório Viagens Expressas.csv", type='csv', key=1)
      
 with col2:
     # Upload do arquivo dos dados das linhas
     st.subheader("Dados das linhas")
-    up_linhas = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=2)
+    up_linhas = st.file_uploader("Arquivo Relatório Metroplan.csv", type='csv', key=2)
 
 with col3:
     # Upload do arquivo PLE
     st.subheader("PLE")
-    up_ple = st.file_uploader("Selecione um arquivo .CSV", type='csv', key=3)    
+    up_ple = st.file_uploader("Arquivo de Utilização de Cartões por Operadora.csv", type='csv', key=3)    
 
 with col4:
     # KM mensal
     st.subheader("KM Mensal")
-    km = st.number_input("KM", value=0)
+    km = st.number_input("Abastecimento por Veículo", value=0)
 
 botao = st.sidebar.button("Iniciar", type="primary")
 

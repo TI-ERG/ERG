@@ -1,9 +1,6 @@
 import streamlit as st
 import subprocess
 
-# Configuração da página
-#st.set_page_config(layout="wide")
-
 def get_git_version():
     try:
         version = subprocess.check_output(["git", "describe", "--tags"]).decode().strip()
@@ -29,9 +26,9 @@ pages = {
 }
 
 pages_dados = {
-    "Dados AGERGS": [
-        st.Page("pages/frota_agergs.py", title="Frota", icon="🚌"),
-        st.Page("pages/linhas_agergs.py", title="Linhas", icon="🚏")
+    "Matrizes de Dados": [
+        st.Page("pages/frota.py", title="Frota", icon="🚌"),
+        st.Page("pages/linhas.py", title="Linhas", icon="🚏")
     ]
 }
 

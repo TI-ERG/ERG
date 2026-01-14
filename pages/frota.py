@@ -8,13 +8,12 @@ from utils import json_utils
 
 # Lê o arquivo config e define o arquivo de linhas
 config = json_utils.ler_json("config.json")
-arq_frota = config["agergs"]["frota"]
+arq_frota = config["matrizes"]["frota"]
 
 def carregar():
     return json_utils.ler_json(arq_frota)
 
-st.subheader("Edição de tabela - Frota")
-st.markdown("Indicadores AGERGS")
+st.subheader("Edição de matriz - Frota")
 st.divider()
 
 # Mostrar mensagem se acabou de salvar 
