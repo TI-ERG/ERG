@@ -38,32 +38,23 @@ with st.container():
     col1, col2, col3 = st.columns([3, 3, 3], vertical_alignment='top')
     with col1:
         # Feriados
-        # Inicializa a lista no session_state 
-        if "feriados" not in st.session_state: st.session_state.feriados = [] # cada item será {"data": date, "escala": "sábado"|"domingo"}
+        st.subheader("Feriados", anchor=False)
 
-        # Seleção da data 
-        data_feriado = st.date_input("Data do feriado:", value=date.today(), format="DD/MM/YYYY")
-        # Seleção da escala 
-        escala = st.radio("Escala do feriado:", ["Sábado", "Domingo"], horizontal=True)
-        # Botão para adicionar 
-        if st.button("Adicionar feriado"): 
-            item = {"data": data_feriado, "escala": escala}
-            # Evita duplicados 
-            if item not in st.session_state.feriados: 
-                st.session_state.feriados.append(item) 
-            else: 
-                st.warning("Esse feriado já foi cadastrado")
+        df_feriado = pd.DataFrame([{"data": None, "escala": None}])
 
-        for i, feriado in enumerate(st.session_state.feriados):
-            col1, col2, col3 = st.columns([2, 2, 1]) 
-            with col1: 
-                st.write(feriado["data"].strftime("%d/%m/%Y")) 
-            with col2: 
-                st.write(f"**{feriado['escala']}**") 
-            with col3: 
-                if st.button("🗑️", key=f"remover_{i}"): 
-                    st.session_state.feriados.pop(i) 
-                    st.rerun()
+        # Editor de tabela
+        df_feriado_editado = st.data_editor(
+            df_feriado,
+            num_rows="dynamic",
+            column_config={
+                "data": st.column_config.DateColumn("Data do feriado", format="DD/MM/YYYY"),
+                "escala": st.column_config.SelectboxColumn("Escala", options=["Sábado", "Domingo"])
+            }
+        )
+
+        # Converte depois do editor
+        df_feriado_editado["data"] = pd.to_datetime(df_feriado_editado["data"], errors="coerce").dt.date
+
 
 botao = st.sidebar.button("Iniciar", type="primary")
 
