@@ -113,19 +113,19 @@ def dados_PLE():
 
 def matriz_bod(arq):
     # Viagens expressas
-    progresso.info("Lendo viagens expressas...")
+    st.write("Lendo viagens expressas...")
     df_exp = rel_viagens_expressas()
     
     # Dados das linhas
-    progresso.info("Lendo dados das linhas...")
+    st.write("Lendo dados das linhas...")
     df_transnet = rel_metroplan()
 
     # Dados PLE
-    progresso.info("Lendo dados PLE's...")
+    st.write("Lendo dados PLE's...")
     df_ple = dados_PLE()
 
     # Lendo a matriz BOD
-    progresso.info("Lendo matriz...")
+    st.write("Lendo matriz...")
     df_matriz = pd.read_excel(arq, sheet_name='MATRIZ', decimal=',')
 
     # Verifica se tem alguma linha no Transnet e na matriz não
@@ -138,7 +138,7 @@ def matriz_bod(arq):
     if not divergencia_ple.empty:
         st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
-    progresso.info("Preparando matriz...")
+    st.write("Preparando matriz...")
     df_matriz["ANO"] = df_matriz["ANO"].fillna(df_transnet["ANO"].iloc[0]).astype(int) # Ano
     df_matriz["MES"] = df_matriz["MES"].fillna(df_transnet["MES"].iloc[0]).astype(int) # Mês
     
@@ -161,11 +161,11 @@ def matriz_bod(arq):
     df_exp.set_index(['Número Linha', 'Sentido'], inplace=True)
 
     # Preenchendo a coluna viagens expressas
-    progresso.info("Inserindo viagens expressas...")
+    st.write("Inserindo viagens expressas...")
     df_matriz.loc[df_exp.index, 'VR_EXP'] = df_exp['Qt.Viagens']
 
     # Preenchendo colunas
-    progresso.info("Inserindo informações...")
+    st.write("Inserindo informações...")
     df_matriz.loc[df_matriz['TAR_MAX_COM'] == 0, 'TAR_MAX_COM'] = df_matriz['TMCOM'] # Tárifa máxima comum
     df_matriz["TAR_MAX_COM"] = df_matriz["TAR_MAX_COM"].fillna(0)
     df_matriz["TAR_MAX_ESC"] = (df_matriz["TAR_MAX_COM"] * 0.9).where(df_matriz["SERV"] != "S") # Tárifa máxima escolar
@@ -181,7 +181,7 @@ def matriz_bod(arq):
     df_matriz["REC_TAR_ESC"] = df_matriz['ESC_R$'] # Receita tarifa escolar
     
     # Colunas/variáveis temporárias para cálculos das próximas colunas
-    progresso.info("Calculando colunas...")
+    st.write("Calculando colunas...")
     df_matriz['KM_LINHA'] = df_matriz['EXTP_SIMP'] + df_matriz['EXTP_EXP']
     comb_real = df_matriz['KM_LINHA'].sum() # Soma o KM_LINHA para obter o combustível real
     comb_desloc = km - comb_real # Combustível deslocamento, KM informado na página - combustível real
@@ -223,7 +223,7 @@ config = json_utils.ler_json("config.json")
 
 st.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
 
-# Colunas
+# Colunas do form
 col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
 
 with col1:
@@ -249,9 +249,12 @@ with col4:
 botao = st.sidebar.button("Iniciar", type="primary")
 
 st.divider()
-    
+
 if botao:
     try:
+        # Remove os botões
+        st.session_state.pop("mostrar_downloads_bod", None)
+
         # Verificações e leitura dos arquivos
         if up_expressas is None:
             st.warning("Arquivo de viagens expressas não foi selecionado!", icon=":material/error_outline:")
@@ -270,266 +273,257 @@ if botao:
             st.stop()
 
         # Processando
-        progresso = st.empty()
-        
-        df_bod = matriz_bod(config['bod']['modelo_bod'])
-        mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
+        with st.status("Processando...", expanded=False) as status:
+            df_bod = matriz_bod(config['bod']['modelo_bod'])
+            mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
 
-        # ✳️ Preencher planilha BOD Metroplan ✳️
-        progresso.info("Preenchendo planilha Metroplan...")
+            # ✳️ Preencher planilha BOD Metroplan ✳️
+            st.write("Preenchendo planilha Metroplan...")
 
-        wb_met = load_workbook(config['bod']['modelo_metroplan'])
-        wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
-        wb_met['Identificação da Empresa'].cell(row=11, column=8, value=ano)
-        ws = wb_met['BOD']
-        ws.protection.sheet = False
-        ws.protection.disable()
+            wb_met = load_workbook(config['bod']['modelo_metroplan'])
+            wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
+            wb_met['Identificação da Empresa'].cell(row=11, column=8, value=ano)
+            ws = wb_met['BOD']
+            ws.protection.sheet = False
+            ws.protection.disable()
 
-        num_linhas_df = len(df_bod)
+            num_linhas_df = len(df_bod)
 
-        # Escrever os dados
-        for i, row in enumerate(df_bod.itertuples(index=False), start=2):
-            for j, valor in enumerate(row[:29], start=1): # Até a coluna Frota
-                ws.cell(row=i, column=j, value=valor)
+            # Escrever os dados
+            for i, row in enumerate(df_bod.itertuples(index=False), start=2):
+                for j, valor in enumerate(row[:29], start=1): # Até a coluna Frota
+                    ws.cell(row=i, column=j, value=valor)
 
-        # Definir formatação pois não pegou a formatação da planilha
-        for i in range(2, num_linhas_df + 2):
-            for col in range(9, 11):  
-                ws.cell(row=i, column=col).number_format = '0.000'
-            for col in range(11, 14):  
-                ws.cell(row=i, column=col).number_format = '0.00'
-            for col in range(14, 26):  
-                ws.cell(row=i, column=col).number_format = '_(* #,##0_);_(* (#,##0);_(* "-"_);_(@_)' # Contábil sem sinal e casas decimais
-            for col in range(26, 29):  
-                ws.cell(row=i, column=col).number_format = '0.00'
+            # Definir formatação pois não pegou a formatação da planilha
+            for i in range(2, num_linhas_df + 2):
+                for col in range(9, 11):  
+                    ws.cell(row=i, column=col).number_format = '0.000'
+                for col in range(11, 14):  
+                    ws.cell(row=i, column=col).number_format = '0.00'
+                for col in range(14, 26):  
+                    ws.cell(row=i, column=col).number_format = '_(* #,##0_);_(* (#,##0);_(* "-"_);_(@_)' # Contábil sem sinal e casas decimais
+                for col in range(26, 29):  
+                    ws.cell(row=i, column=col).number_format = '0.00'
 
-        progresso.info("Salvando BOD Metroplan...")
+            st.write("Salvando BOD Metroplan...")
 
-        # Salva em memória 
-        buffer_met = BytesIO() 
-        wb_met.save(buffer_met) 
-        buffer_met.seek(0)
-        st.session_state["buffer_met"] = buffer_met
-        
-        ws = None
-        wb_met = None
-
-        # ✳️ Preencher planilha BOD ERG ✳️
-        wb_erg = load_workbook(config['bod']['modelo_bod'])
-
-        # 1️⃣ [BOD]
-        progresso.info("Preenchendo planilha BOD [BOD]...")
-        ws_bod = wb_erg['BOD']
-        linha_modelo = 3 # Linha com a formatação de referência
-        num_linhas_df = len(df_bod)
-
-        # Copiar formatação
-        for i in range(num_linhas_df):
-            for col in range(1, 30):  
-                celula_origem = ws_bod.cell(row=linha_modelo, column=col)
-                celula_destino = ws_bod.cell(row=linha_modelo + i, column=col)
-                celula_destino._style = copy(celula_origem._style)
-
-        # Escrever os dados
-        for i, row in enumerate(df_bod.itertuples(index=False), start=linha_modelo):
-            for j, valor in enumerate(row[:29], start=1): # Até a coluna Frota
-                ws_bod.cell(row=i, column=j, value=valor)
-
-        #Salvo os dados no arquivo de config para o PDO
-        progresso.info("Atualizando arquivo de config com os dados do BOD...")
-
-        config['bod']['periodo'] = fr"{mes:02}/{ano}"
-        config['bod']['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
-        config['bod']['bod_km_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
-        config['bod']['bod_km_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
-        config['bod']['bod_km_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
-        config['bod']['bod_isentos_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-        config['bod']['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-        config['bod']['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
-        config['bod']['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
-        json_utils.salvar_json(config, 'config.json')
-
-        # 2️⃣ [SINTETICO]
-        progresso.info("Preenchendo planilha BOD [SINTETICO]...")
-        # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
-        # Mapeamento das colunas e renomeando para os novos nomes desejados
-        colunas_renomeadas = {
-            'VR_SIMP': 'VU',
-            'VR_EXP': 'VE',
-            'EXTP_SIMP': 'RU',
-            'EXTP_EXP': 'RE',
-            'BAL': 'B',
-            'INT_TEU': 'INT_TEU',
-            'INT_TAL': 'INT_TAL',
-            'ISE': 'I',
-            'TEU_VT': 'TEU_VT',
-            'TEU_BIL': 'TEU_BIL',
-            'ESC': 'PE',
-            'DIN': 'PL',
-            'DIN_R$': 'R',
-            'PASS_ISE': 'ISENTOS', # Colunas para a aba ATM
-            'REC_TAR_COM': 'REC_TAR_COM',
-            'REC_TAR_ESC': 'REC_TAR_ESC'
-        }
-
-        # Agrupamento com renomeação já no resultado
-        df_agrupado = df_bod.groupby('COD').agg({col: 'sum' for col in colunas_renomeadas}).rename(columns=colunas_renomeadas).reset_index()
-
-        # Cálculos derivados
-        df_agrupado['INT'] = df_agrupado['INT_TEU'] + df_agrupado['INT_TAL']
-        df_agrupado['VT'] = df_agrupado['TEU_VT'] + df_agrupado['TEU_BIL']
-        df_agrupado['PP'] = df_agrupado['VT'] + df_agrupado['PE'] + df_agrupado['PL']
-        df_agrupado['PT'] = df_agrupado['I'] + df_agrupado['PP']
-        df_agrupado['PB'] = df_agrupado['B'] + df_agrupado['INT'] + df_agrupado['PT']
-        df_agrupado['VL'] = df_agrupado['VU'] + df_agrupado['VE']
-        df_agrupado['RL'] = df_agrupado['RU'] + df_agrupado['RE']
-        df_agrupado['TOTAL'] = df_agrupado['VT'] + df_agrupado['PL'] + df_agrupado['PE'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
-        df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC']
-
-        # Condicionais
-        df_agrupado['VEVL'] = np.where(df_agrupado['VE'] == 0, 0, df_agrupado['VE'] / df_agrupado['VL'])
-        df_agrupado['VTPT'] = np.where(df_agrupado['PT'] == 0, 0, df_agrupado['VT'] / df_agrupado['PT'])
-        df_agrupado['PTVL'] = np.where(df_agrupado['VL'] == 0, 0, df_agrupado['PT'] / df_agrupado['VL'])
-        df_agrupado['IPK'] = np.where(df_agrupado['RL'] == 0, 0, df_agrupado['PT'] / df_agrupado['RL'])
-
-        df_fixos = df_bod[['COD', 'NOME', 'COD_VT', 'TAR_MAX_COM']].drop_duplicates(subset='COD')
-        df_sintetico = pd.merge(df_fixos, df_agrupado, on='COD', how='left')
-        colunas_ordenadas = [
-            'COD', 'NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'VT', 'PE', 'PL', 
-            'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK', 'TAR_MAX_COM', 'ISENTOS', 'TOTAL', 'RECEITA'
-        ]
-
-        df_sintetico = df_sintetico[colunas_ordenadas]
-
-        ws_sin = wb_erg['SINTETICO']
-
-        dados_cod = df_sintetico.set_index(['COD']).to_dict('index')  # Cria dicionário com os dados do df_final, cada COD mapeia um dict com os valores
-        cods_restantes = set(dados_cod.keys()) # Lista de CODs ainda não usados
-        linha = 2  # começa da linha 2
-
-        while True:
-            celula_cod = ws_sin.cell(row=linha, column=1).value
-
-            # Verifica fim da planilha ou célula vazia
-            if celula_cod is None:
-                linha += 1
-                continue
-
-            # Se encontrar o texto 'TOTAL', interrompe
-            if str(celula_cod).strip().upper() == 'TOTAL':
-                break
-
-            # Tenta encontrar o COD no df_sin
-            if celula_cod in dados_cod:
-                valores = list(dados_cod[celula_cod].values())
-                for i in range(0, 22): # Vai até IPK
-                    ws_sin.cell(row=linha, column=i + 2, value=valores[i])
-
-                cods_restantes.discard(celula_cod)  # Remove o cod já inserido
-
-            linha += 1
-
-        # Após sair do loop, verifica se há dados não inseridos
-        if cods_restantes:
-            st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
-
-        # 3️⃣ [ATM]
-        ws_atm = wb_erg['ATM']
-
-        primeiro_dia = date(ano, mes, 1)
-        ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
-        ws_atm.cell(row=4, column=7, value=f'{primeiro_dia.strftime("%d/%m/%Y")} a {ultimo_dia.strftime("%d/%m/%Y")}') # Período
-        ws_atm.cell(row=5, column=7, value=date.today().strftime("%d/%m/%Y")) # Data
-
-        # Excluo as colunas não usadas para facilitar a iteração e ordeno
-        df_sintetico = df_sintetico.drop(columns=['NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK'])
-        colunas_ordenadas = ['COD', 'TAR_MAX_COM', 'VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']
-
-        df_sintetico = df_sintetico[colunas_ordenadas]
-
-        dados_cod = df_sintetico.set_index(['COD']).to_dict('index')
-        cods_restantes = set(dados_cod.keys()) # monto novamente a lista de CODs ainda não usados
-
-        linha = 9 
-
-        while True:
-            celula_cod = ws_atm.cell(row=linha, column=1).value.split('-')[0].strip()
-
-            # Se encontrar o texto 'TOTAL', soma e interrompe
-            if str(celula_cod).strip().upper() == 'TOTAL':
-                df_soma = df_sintetico[['VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']].sum()
-                for indice, valor in enumerate(df_soma, start=3):
-                    ws_atm.cell(row=linha, column=indice, value=valor)
-
-                break
+            # Salva em memória 
+            buffer_met = BytesIO() 
+            wb_met.save(buffer_met) 
+            buffer_met.seek(0)
+            st.session_state["buffer_met"] = buffer_met
             
-            # Tenta encontrar o COD no df_sin
-            if celula_cod in dados_cod:
-                for idx_coluna, (coluna, valor) in enumerate(dados_cod[celula_cod].items(), start=0):
-                    ws_atm.cell(row=linha, column=idx_coluna + 2, value=valor)
-                    if (idx_coluna > 0): ws_atm.cell(row=linha + 1, column=idx_coluna + 2, value=valor)
+            ws = None
+            wb_met = None
 
-                cods_restantes.discard(celula_cod)  # Remove o cod já inserido
+            # ✳️ Preencher planilha BOD ERG ✳️
+            wb_erg = load_workbook(config['bod']['modelo_bod'])
 
-            linha += 2
+            # 1️⃣ [BOD]
+            st.write("Preenchendo planilha BOD [BOD]...")
+            ws_bod = wb_erg['BOD']
+            linha_modelo = 3 # Linha com a formatação de referência
+            num_linhas_df = len(df_bod)
 
-        # Após sair do loop, verifica se há dados não inseridos
-        if cods_restantes:
-            st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [ATM]: {list(cods_restantes)}")
+            # Copiar formatação
+            for i in range(num_linhas_df):
+                for col in range(1, 30):  
+                    celula_origem = ws_bod.cell(row=linha_modelo, column=col)
+                    celula_destino = ws_bod.cell(row=linha_modelo + i, column=col)
+                    celula_destino._style = copy(celula_origem._style)
 
-        # Salvar
-        progresso.info("Salvando BOD ERG...")
-        wb_erg.remove(wb_erg["MATRIZ"])
-        wb_erg.active = wb_erg.sheetnames.index('BOD')
+            # Escrever os dados
+            for i, row in enumerate(df_bod.itertuples(index=False), start=linha_modelo):
+                for j, valor in enumerate(row[:29], start=1): # Até a coluna Frota
+                    ws_bod.cell(row=i, column=j, value=valor)
 
-        for aba in wb_erg.worksheets:
-            aba.sheet_view.tabSelected = (aba.title == 'BOD')
-        
-        # Salva em memória 
-        buffer_erg = BytesIO() 
-        wb_erg.save(buffer_erg)
-        buffer_erg.seek(0)
-        st.session_state["buffer_erg"] = buffer_erg
+            #Salvo os dados no arquivo de config para o PDO
+            st.write("Atualizando arquivo de config com os dados do BOD...")
 
-        # ✳️ Comparativos de valores ✳️
-        df_soma['VT'] = df_soma['VT'] + df_soma['PL']
-        df_soma = df_soma.drop(['PL', 'TOTAL'])
-        df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE']].sum()
-        df_bod_total['RECEITA'] = df_bod['REC_TAR_COM'].sum() + df_bod['REC_TAR_ESC'].sum()
-        df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS'})
+            config['bod']['periodo'] = fr"{mes:02}/{ano}"
+            config['bod']['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
+            config['bod']['bod_km_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
+            config['bod']['bod_km_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
+            config['bod']['bod_km_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
+            config['bod']['bod_isentos_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
+            config['bod']['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
+            config['bod']['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
+            config['bod']['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
+            json_utils.salvar_json(config, 'config.json')
 
-        df_soma = df_soma.astype('object')
-        df_bod_total = df_bod_total.astype('object')
-        
-        # Monta tabela comparativa
-        tabela = pd.DataFrame({
-             'Total BOD': pd.Series([format_utils.formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
-             'Total ATM': pd.Series([format_utils.formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
-        })
+            # 2️⃣ [SINTETICO]
+            st.write("Preenchendo planilha BOD [SINTETICO]...")
+            # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
+            # Mapeamento das colunas e renomeando para os novos nomes desejados
+            colunas_renomeadas = {
+                'VR_SIMP': 'VU',
+                'VR_EXP': 'VE',
+                'EXTP_SIMP': 'RU',
+                'EXTP_EXP': 'RE',
+                'BAL': 'B',
+                'INT_TEU': 'INT_TEU',
+                'INT_TAL': 'INT_TAL',
+                'ISE': 'I',
+                'TEU_VT': 'TEU_VT',
+                'TEU_BIL': 'TEU_BIL',
+                'ESC': 'PE',
+                'DIN': 'PL',
+                'DIN_R$': 'R',
+                'PASS_ISE': 'ISENTOS', # Colunas para a aba ATM
+                'REC_TAR_COM': 'REC_TAR_COM',
+                'REC_TAR_ESC': 'REC_TAR_ESC'
+            }
 
-        # Adiciona a coluna de verificação
-        tabela['-'] = [
-            "✅" if round(df_bod_total[col], 2) == round(df_soma[col], 2) else "❌"
-                for col in df_bod_total.index
-        ]
+            # Agrupamento com renomeação já no resultado
+            df_agrupado = df_bod.groupby('COD').agg({col: 'sum' for col in colunas_renomeadas}).rename(columns=colunas_renomeadas).reset_index()
 
-        comp1, comp2 = st.columns(2)
-        with comp2:
-            # Estilo para alinhar à direita
-            estilo = tabela.style.set_properties(**{'text-align': 'right'}).set_table_styles([
-                {'selector': 'th', 'props': [('text-align', 'right')]}
-            ])
+            # Cálculos derivados
+            df_agrupado['INT'] = df_agrupado['INT_TEU'] + df_agrupado['INT_TAL']
+            df_agrupado['VT'] = df_agrupado['TEU_VT'] + df_agrupado['TEU_BIL']
+            df_agrupado['PP'] = df_agrupado['VT'] + df_agrupado['PE'] + df_agrupado['PL']
+            df_agrupado['PT'] = df_agrupado['I'] + df_agrupado['PP']
+            df_agrupado['PB'] = df_agrupado['B'] + df_agrupado['INT'] + df_agrupado['PT']
+            df_agrupado['VL'] = df_agrupado['VU'] + df_agrupado['VE']
+            df_agrupado['RL'] = df_agrupado['RU'] + df_agrupado['RE']
+            df_agrupado['TOTAL'] = df_agrupado['VT'] + df_agrupado['PL'] + df_agrupado['PE'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
+            df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC']
 
-            # Exibir como HTML
-            st.markdown(estilo.to_html(), unsafe_allow_html=True)
+            # Condicionais
+            df_agrupado['VEVL'] = np.where(df_agrupado['VE'] == 0, 0, df_agrupado['VE'] / df_agrupado['VL'])
+            df_agrupado['VTPT'] = np.where(df_agrupado['PT'] == 0, 0, df_agrupado['VT'] / df_agrupado['PT'])
+            df_agrupado['PTVL'] = np.where(df_agrupado['VL'] == 0, 0, df_agrupado['PT'] / df_agrupado['VL'])
+            df_agrupado['IPK'] = np.where(df_agrupado['RL'] == 0, 0, df_agrupado['PT'] / df_agrupado['RL'])
 
-        progresso.success("Processo concluído!")
+            df_fixos = df_bod[['COD', 'NOME', 'COD_VT', 'TAR_MAX_COM']].drop_duplicates(subset='COD')
+            df_sintetico = pd.merge(df_fixos, df_agrupado, on='COD', how='left')
+            colunas_ordenadas = [
+                'COD', 'NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'VT', 'PE', 'PL', 
+                'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK', 'TAR_MAX_COM', 'ISENTOS', 'TOTAL', 'RECEITA'
+            ]
 
-        st.session_state["mostrar_downloads"] = True
-        st.session_state["ano"] = ano
-        st.session_state["mes"] = mes
+            df_sintetico = df_sintetico[colunas_ordenadas]
+
+            ws_sin = wb_erg['SINTETICO']
+
+            dados_cod = df_sintetico.set_index(['COD']).to_dict('index')  # Cria dicionário com os dados do df_final, cada COD mapeia um dict com os valores
+            cods_restantes = set(dados_cod.keys()) # Lista de CODs ainda não usados
+            linha = 2  # começa da linha 2
+
+            while True:
+                celula_cod = ws_sin.cell(row=linha, column=1).value
+
+                # Verifica fim da planilha ou célula vazia
+                if celula_cod is None:
+                    linha += 1
+                    continue
+
+                # Se encontrar o texto 'TOTAL', interrompe
+                if str(celula_cod).strip().upper() == 'TOTAL':
+                    break
+
+                # Tenta encontrar o COD no df_sin
+                if celula_cod in dados_cod:
+                    valores = list(dados_cod[celula_cod].values())
+                    for i in range(0, 22): # Vai até IPK
+                        ws_sin.cell(row=linha, column=i + 2, value=valores[i])
+
+                    cods_restantes.discard(celula_cod)  # Remove o cod já inserido
+
+                linha += 1
+
+            # Após sair do loop, verifica se há dados não inseridos
+            if cods_restantes:
+                st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
+
+            # 3️⃣ [ATM]
+            st.write("Preenchendo planilha BOD [ATM]...")
+            ws_atm = wb_erg['ATM']
+
+            primeiro_dia = date(ano, mes, 1)
+            ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
+            ws_atm.cell(row=4, column=7, value=f'{primeiro_dia.strftime("%d/%m/%Y")} a {ultimo_dia.strftime("%d/%m/%Y")}') # Período
+            ws_atm.cell(row=5, column=7, value=date.today().strftime("%d/%m/%Y")) # Data
+
+            # Excluo as colunas não usadas para facilitar a iteração e ordeno
+            df_sintetico = df_sintetico.drop(columns=['NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK'])
+            colunas_ordenadas = ['COD', 'TAR_MAX_COM', 'VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']
+
+            df_sintetico = df_sintetico[colunas_ordenadas]
+
+            dados_cod = df_sintetico.set_index(['COD']).to_dict('index')
+            cods_restantes = set(dados_cod.keys()) # monto novamente a lista de CODs ainda não usados
+
+            linha = 9 
+
+            while True:
+                celula_cod = ws_atm.cell(row=linha, column=1).value.split('-')[0].strip()
+
+                # Se encontrar o texto 'TOTAL', soma e interrompe
+                if str(celula_cod).strip().upper() == 'TOTAL':
+                    df_soma = df_sintetico[['VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']].sum()
+                    for indice, valor in enumerate(df_soma, start=3):
+                        ws_atm.cell(row=linha, column=indice, value=valor)
+
+                    break
+                
+                # Tenta encontrar o COD no df_sin
+                if celula_cod in dados_cod:
+                    for idx_coluna, (coluna, valor) in enumerate(dados_cod[celula_cod].items(), start=0):
+                        ws_atm.cell(row=linha, column=idx_coluna + 2, value=valor)
+                        if (idx_coluna > 0): ws_atm.cell(row=linha + 1, column=idx_coluna + 2, value=valor)
+
+                    cods_restantes.discard(celula_cod)  # Remove o cod já inserido
+
+                linha += 2
+
+            # Após sair do loop, verifica se há dados não inseridos
+            if cods_restantes:
+                st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [ATM]: {list(cods_restantes)}")
+
+            # Salvar
+            st.write("Salvando BOD ERG...")
+            wb_erg.remove(wb_erg["MATRIZ"])
+            wb_erg.active = wb_erg.sheetnames.index('BOD')
+
+            for aba in wb_erg.worksheets:
+                aba.sheet_view.tabSelected = (aba.title == 'BOD')
+            
+            # Salva em memória 
+            buffer_erg = BytesIO() 
+            wb_erg.save(buffer_erg)
+            buffer_erg.seek(0)
+            st.session_state["buffer_erg"] = buffer_erg
+
+            # ✳️ Comparativos de valores ✳️
+            df_soma['VT'] = df_soma['VT'] + df_soma['PL']
+            df_soma = df_soma.drop(['PL', 'TOTAL'])
+            df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE']].sum()
+            df_bod_total['RECEITA'] = df_bod['REC_TAR_COM'].sum() + df_bod['REC_TAR_ESC'].sum()
+            df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS'})
+
+            df_soma = df_soma.astype('object')
+            df_bod_total = df_bod_total.astype('object')
+            
+            # Monta tabela comparativa
+            tabela = pd.DataFrame({
+                'Total BOD': pd.Series([format_utils.formatar_valor(df_bod_total[i], moeda=(i == 'RECEITA')) for i in df_bod_total.index], index=df_bod_total.index),
+                'Total ATM': pd.Series([format_utils.formatar_valor(df_soma[i], moeda=(i == 'RECEITA')) for i in df_soma.index], index=df_soma.index)
+            })
+
+            # Adiciona a coluna de verificação
+            tabela['-'] = [
+                "✅" if round(df_bod_total[col], 2) == round(df_soma[col], 2) else "❌"
+                    for col in df_bod_total.index
+            ]
+
+            st.session_state["mostrar_downloads_bod"] = True
+            st.session_state["ano_bod"] = ano
+            st.session_state["mes_bod"] = mes
+            st.session_state["tab_conf_bod"] = tabela
+            status.update(label="Processo concluído!", state="complete", expanded=False)
 
     except Exception as e:    
+        status.update(label="Erro durante o processamento!", state="error")
         st.error(f"🐞 Erro: {traceback.format_exc()}")
 
     finally:
@@ -552,21 +546,36 @@ if botao:
         progress_text = None    
 
 # ✳️ Downloads ✳️
-if st.session_state.get("mostrar_downloads", False):
-    ano = st.session_state["ano"]
-    mes = st.session_state["mes"]
+if st.session_state.get("mostrar_downloads_bod", False):
+    ano = st.session_state["ano_bod"]
+    mes = st.session_state["mes_bod"]
+    tabela = st.session_state["tab_conf_bod"]
+    
+    # Colunas dos botões e tabela de conferência
+    comp1, comp2 = st.columns(2)
+    with comp1:
+        c1, c2, c3 = st.columns(3)
+        c1.download_button( 
+            label="📥 Baixar BOD-Metroplan", 
+            data= st.session_state["buffer_met"], 
+            file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+            )
 
-    st.sidebar.download_button( 
-        label="Baixar BOD Metroplan", 
-        data= st.session_state["buffer_met"], 
-        file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-        )
+        c2.download_button( 
+            label="📥 Baixar BOD-ERG", 
+            data=st.session_state["buffer_erg"], 
+            file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+            )
+    
+    with comp2:
+        co1, co2 = st.columns(2)
+        # Estilo para alinhar à direita
+        estilo = tabela.style.set_properties(**{'text-align': 'right'}).set_table_styles([
+                {'selector': 'th', 'props': [('text-align', 'right')]}
+            ])
 
-    st.sidebar.download_button( 
-        label="Baixar BOD ERG", 
-        data=st.session_state["buffer_erg"], 
-        #file_name= fr"BOD {mes:02}.{ano}.xlsx", 
-        file_name= fr"BOD.xlsx", 
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-        )
+        # Exibir como HTML
+        with co2:
+            st.markdown(estilo.to_html(), unsafe_allow_html=True)

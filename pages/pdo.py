@@ -63,6 +63,9 @@ st.divider()
 
 if botao:
     try:
+        # Remove os botões
+        st.session_state.pop("mostrar_downloads_pdo", None)
+
         # Verificações de seleção dos arquivos
         if up_passageiros is None:
             st.warning("Arquivo Relatório Desempenho Diário das Linhas não foi selecionado!", icon=":material/error_outline:")
@@ -76,7 +79,7 @@ if botao:
             st.warning("Planilha para conferência não foi selecionada!", icon=":material/error_outline:")
             st.stop()
 
-        with st.status("Processando...", expanded=True) as status:
+        with st.status("Processando...", expanded=False) as status:
             st.write("Lendo arquivos...")
             # Lê arquivo de configuração
             config = json_utils.ler_json("config.json")
@@ -100,18 +103,28 @@ if botao:
 
 
             status.update(label="Processo terminado!", state="complete", expanded=False)
-
-        st.success("Arquivo gerado com sucesso!")
-
-        # Botões
-        col1, col2, col3 = st.columns([1,1,5], vertical_alignment='top')
-        with col1:
-            st.download_button(label="📥 Baixar PDO ERG", data="conteúdo do arquivo", file_name="relatorio.csv", mime="text/csv")
-        with col2:     
-            st.download_button(label="📥 Baixar PDO TM5", data="conteúdo do arquivo", file_name="relatorio.csv", mime="text/csv")
-
+            st.success("Arquivo gerado com sucesso!")
+            st.session_state["mostrar_downloads_pdo"] = True
 
     except Exception as e:  
         status.update(label="Erro durante o processamento!", state="error")  
         st.error(f"🐞 Erro: {traceback.format_exc()}")
-       
+
+# ✳️ Downloads ✳️
+if st.session_state.get("mostrar_downloads_pdo", False):       
+    # Botões
+    col1, col2, col3 = st.columns([1,1,5], vertical_alignment='top')
+    with col1:
+        st.download_button(
+            label="📥 Baixar PDO-ERG", 
+            data="conteúdo do arquivo", 
+            file_name="relatorio.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+        )
+    with col2:     
+        st.download_button(
+            label="📥 Baixar PDO-TM5", 
+            data="conteúdo do arquivo", 
+            file_name="relatorio.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+        )
