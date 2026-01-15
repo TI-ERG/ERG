@@ -21,41 +21,49 @@ with st.container():
 
     with col1:
         # Upload do arquivo de dados de passageiros
-        st.subheader("Dados de passageiros")
+        st.subheader("Dados de passageiros", help="Transnet > Módulos > Tráfego/Arrecadação > Consultas/Relatórios > Controle Operacional/Tráfego > Desempenho Diário das Linhas", anchor=False)
         up_passageiros = st.file_uploader("Arquivo Relatório Desempenho Diário das Linhas.csv", type='csv', key=1)
         
     with col2:
         # Upload do arquivo dos dados das viagens
-        st.subheader("Dados de viagens")
+        st.subheader("Dados de viagens", help="Transnet > Módulos > Tráfego/Arrecadação > Consultas/Relatórios > Controle Operacional/Tráfego > Controle Operacional Detalhado Por Linha", anchor=False)
         up_viagens = st.file_uploader("Arquivo Relatório Controle Operacional Detalhado por Linha.csv", type='csv', key=2)
 
     with col3:
         # Upload da planilha para conferência das viagens
-        st.subheader("Planilha para conferência")
+        st.subheader("Planilha para conferência", help="Planilha enviada pelo Paulo", anchor=False)
         up_conferencia = st.file_uploader("Selecione um arquivo .XLSX", type='xlsx', key=3)
 
 with st.container():       
     col1, col2, col3 = st.columns([3, 3, 3], vertical_alignment='top')
     with col1:
         # Feriados
-        feriados = {} 
-        st.subheader("Informe os feriados") 
+        # Inicializa a lista no session_state 
+        if "feriados" not in st.session_state: st.session_state.feriados = [] # cada item será {"data": date, "escala": "sábado"|"domingo"}
 
-        datas_feriados = st.date_input( "Datas dos feriados:", value=[], format="DD/MM/YYYY" )
+        # Seleção da data 
+        data_feriado = st.date_input("Data do feriado:", value=date.today(), format="DD/MM/YYYY")
+        # Seleção da escala 
+        escala = st.radio("Escala do feriado:", ["Sábado", "Domingo"], horizontal=True)
+        # Botão para adicionar 
+        if st.button("Adicionar feriado"): 
+            item = {"data": data_feriado, "escala": escala}
+            # Evita duplicados 
+            if item not in st.session_state.feriados: 
+                st.session_state.feriados.append(item) 
+            else: 
+                st.warning("Esse feriado já foi cadastrado")
 
-        if isinstance(datas_feriados, date): datas_feriados = [datas_feriados]
-
-        if datas_feriados: 
-            st.subheader("Defina a escala de cada feriado")
-
-        for data in datas_feriados: 
-            escala = st.selectbox( f"Escala do feriado em {data.strftime('%d/%m/%Y')}:", ["Sábado", "Domingo"], key=f"escala_{data}" ) 
-            feriados[data] = escala
-
-
-        if feriados: 
-            for data, escala in feriados.items(): 
-                st.write(f"📅 {data.strftime('%d/%m/%Y')} → {escala}")
+        for i, feriado in enumerate(st.session_state.feriados):
+            col1, col2, col3 = st.columns([2, 2, 1]) 
+            with col1: 
+                st.write(feriado["data"].strftime("%d/%m/%Y")) 
+            with col2: 
+                st.write(f"**{feriado['escala']}**") 
+            with col3: 
+                if st.button("🗑️", key=f"remover_{i}"): 
+                    st.session_state.feriados.pop(i) 
+                    st.rerun()
 
 botao = st.sidebar.button("Iniciar", type="primary")
 
@@ -103,8 +111,8 @@ if botao:
 
 
             status.update(label="Processo terminado!", state="complete", expanded=False)
-            st.success("Arquivo gerado com sucesso!")
             st.session_state["mostrar_downloads_pdo"] = True
+            st.success("Arquivos gerados com sucesso!")
 
     except Exception as e:  
         status.update(label="Erro durante o processamento!", state="error")  

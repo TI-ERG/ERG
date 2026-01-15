@@ -228,22 +228,22 @@ col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
 
 with col1:
     # Upload do arquivo de viagens expressas
-    st.subheader("Viagens expressas")
+    st.subheader("Viagens expressas", help="Transnet > Módulos, Corporativo > Rel. Configuráveis > Viagens Expressas", anchor=False)
     up_expressas = st.file_uploader("Arquivo Relatório Viagens Expressas.csv", type='csv', key=1)
      
 with col2:
     # Upload do arquivo dos dados das linhas
-    st.subheader("Dados das linhas")
+    st.subheader("Dados das linhas", help="Transnet > Módulos > Tráfego/Arrecadação > Consultas/Relatórios > Controle Operacional/Tráfego > Relatório Exportador/Metroplan", anchor=False)
     up_linhas = st.file_uploader("Arquivo Relatório Metroplan.csv", type='csv', key=2)
 
 with col3:
     # Upload do arquivo PLE
-    st.subheader("PLE")
+    st.subheader("PLE", help="Ecitop > Relatórios > Utilização de Cartões > Passe Livre - Por Operadora", anchor=False)
     up_ple = st.file_uploader("Arquivo de Utilização de Cartões por Operadora.csv", type='csv', key=3)    
 
 with col4:
     # KM mensal
-    st.subheader("KM Mensal")
+    st.subheader("KM Mensal", help="Transnet > Módulos > Frota > Abastecimento > Relatórios > Abastecimento por veículo", anchor=False)
     km = st.number_input("Abastecimento por Veículo", value=0)
 
 botao = st.sidebar.button("Iniciar", type="primary")
@@ -521,6 +521,7 @@ if botao:
             st.session_state["mes_bod"] = mes
             st.session_state["tab_conf_bod"] = tabela
             status.update(label="Processo concluído!", state="complete", expanded=False)
+            st.success("Arquivos gerados com sucesso!")
 
     except Exception as e:    
         status.update(label="Erro durante o processamento!", state="error")
