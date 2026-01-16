@@ -28,7 +28,7 @@
         "bod_isentos_tm5_2": 125.0
     },
     "pdo": {
-        "modelo_pdo": "'Modelo_PDO.xlsx'"
+        "modelo_pdo": "Modelo_PDO.xlsx"
     },
     "matrizes": {
         "frota": "frota.json",

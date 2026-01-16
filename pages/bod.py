@@ -253,7 +253,7 @@ st.divider()
 if botao:
     try:
         # Remove os botões
-        st.session_state.pop("mostrar_downloads_bod", None)
+        st.session_state.pop("bod", None)
 
         # Verificações e leitura dos arquivos
         if up_expressas is None:
@@ -516,9 +516,7 @@ if botao:
                     for col in df_bod_total.index
             ]
 
-            st.session_state["mostrar_downloads_bod"] = True
-            st.session_state["ano_bod"] = ano
-            st.session_state["mes_bod"] = mes
+            st.session_state["bod"] = f"{mes:02}.{ano}"
             st.session_state["tab_conf_bod"] = tabela
             status.update(label="Processo concluído!", state="complete", expanded=False)
             st.success("Arquivos gerados com sucesso!")
@@ -547,9 +545,8 @@ if botao:
         progress_text = None    
 
 # ✳️ Downloads ✳️
-if st.session_state.get("mostrar_downloads_bod", False):
-    ano = st.session_state["ano_bod"]
-    mes = st.session_state["mes_bod"]
+if st.session_state.get("bod", False):
+    mes, ano = st.session_state["bod"].split(".") 
     tabela = st.session_state["tab_conf_bod"]
     
     # Colunas dos botões e tabela de conferência
@@ -559,14 +556,14 @@ if st.session_state.get("mostrar_downloads_bod", False):
         c1.download_button( 
             label="📥 Baixar BOD-Metroplan", 
             data= st.session_state["buffer_met"], 
-            file_name= fr"90348517000169-BOD-TMA-{ano}{mes:02}-{ano}{mes:02}.xlsx", 
+            file_name= fr"90348517000169-BOD-TMA-{ano}{mes}-{ano}{mes}.xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
             )
 
         c2.download_button( 
             label="📥 Baixar BOD-ERG", 
             data=st.session_state["buffer_erg"], 
-            file_name= fr"BOD {mes:02}.{ano}.xlsx", 
+            file_name= fr"BOD {st.session_state["bod"]}.xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
             )
     
