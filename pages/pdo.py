@@ -106,56 +106,119 @@ if botao:
             st.warning("Planilha para conferência não foi selecionada!", icon=":material/error_outline:")
             st.stop()
 
-        with st.status("Processando...", expanded=False) as status:
-            st.write("Lendo arquivos...")
-            # Lê arquivo de configuração
-            config = json_utils.ler_json("config.json")
-            # Lê arquivo ModeloPDO.xlsx
-
-            # Lê matriz de linhas
-            df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"]))
-            # Lê arquivo detalhado por linha
-            df_det = files_utils.ler_detalhado_linha(up_viagens)
-            # Lê arquivo desempenho diário das linhas
+        with st.status("Lendo arquivos...", expanded=False) as status:
+            st.write("Processando os arquivos...")
+            config = json_utils.ler_json("config.json") # Arquivo de configuração
+            df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"])) # Matriz de linhas
+            df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
+            # Arquivo desempenho diário das linhas
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
-            st.write("Tratando os dados do controle operacional detalhado por linha...")
+
+            status.update(label="Analisando dados...", state="running", expanded=False)
+            st.write("Processando - Controle Ooperacional Detalhado por Linha...")
             # Dropa colunas desnecessárias
             columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Sent.1', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
-            df_det = df_det.drop(columns=columns_to_drop)
+            df_det1 = df_det1.drop(columns=columns_to_drop)
             # Merge com arquivo de linhas para ter a modalidade/serviço
-            df_det = df_det.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
-            df_det = df_det.drop(columns=["Cod_Met"])
+            df_det1 = df_det1.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
+            df_det1 = df_det1.drop(columns=["Cod_Met"])
+            df_det1["Observacao"] = df_det1["Observacao"].astype(str).str.strip()
             # Exclui viagens que NÃO TEM passageiros (possíveis erros de digitação)
-            df_det_filtrado = df_det[~(df_det["Passag"].isna() & (df_det["Observacao"].str.strip() != "Furo de Viagem"))]
+            df_det2 = df_det1[~(df_det1["Passag"].isna() & (df_det1["Observacao"] != "Furo de Viagem"))]
             # Preenche o horário das previstas com as realizadas nas viagens extras (vou usar esta coluna para os horários)
-            df_det_filtrado.loc[:, "THor"] = df_det_filtrado["THor"].fillna(df_det_filtrado["Real"])
-            # Converte a data
-            df_det_filtrado["Dia"] = pd.to_datetime(df_det_filtrado["Dia"], dayfirst=True)
-            # Ordena
-            df_det_filtrado = df_det_filtrado.sort_values(["Sent", "Codigo", "Dia", "THor"])
+            df_det2.loc[:, "THor"] = df_det2["THor"].fillna(df_det2["Real"])
             
-            st.write("Tratando os dados do desempenho diário das linhas...")
+            df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
+            df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
+            
+            st.write("Processando - Desempenho Diário das Linhas...")
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
+            st.write("Processando os dados para conferência...")
+            df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
+            df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
+            # Atualizo com o feriado
+            # 1. Faz o merge com base na data
+            df_conf_merged = df_conf1.merge(df_feriado_editado, left_on='Dia', right_on='data', how='left')
+            # 2. Atualiza 'Dia Semana' com base na escala
+            df_conf_merged.loc[df_conf_merged['escala'] == 'Sábado', 'Dia Semana'] = 'S'
+            df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
+            # 3. Remove colunas extras
+            df_conf1 = df_conf_merged
+            #df_conf1 = df_conf1.drop(columns=["Dia", "Observacao", "data", "escala"])
+            df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"])
 
-            # Lendo Planilha modelo
-            # Vou criar as abas e estilizar os dias de feriados antes, depois só preencho
+            df_conf2 = (
+                df_conf1
+                    .assign(
+                        Tipo=lambda x: x['Observacao'].map({
+                            'OK': 'ERG',
+                            'Viagem Extra': 'EXT',
+                            'Furo de Viagem': 'FURO'
+                        }),
+                        Chave=lambda x: x['Tipo'] + '_' + x['Dia Semana'] + x['Sent'].astype(str)
+                    )
+                    .groupby(['Codigo', 'Chave'])
+                    .size()
+                    .unstack(fill_value=0)
+                    .reindex(columns=['ERG_U1', 'EXT_U1', 'FURO_U1', 'ERG_U2', 'EXT_U2', 'FURO_U2',
+                                      'ERG_S1', 'EXT_S1', 'FURO_S1', 'ERG_S2', 'EXT_S2', 'FURO_S2',
+                                      'ERG_D1', 'EXT_D1', 'FURO_D1', 'ERG_D2', 'EXT_D2', 'FURO_D2'],
+                                        fill_value=0)
+                    .reset_index()
+            )
+
+            
+            # Lendo Planilha modelo ModeloPDO.xlsx
+            status.update(label="Preenchendo a planilha modelo...", state="running", expanded=False)
             st.write("Processando a planilha...")
             wb = load_workbook(config['pdo']['modelo_pdo'])
-            wb = criar_abas_por_semana(wb, df_det_filtrado.loc[0, "Dia"].date())
 
+            # 1️⃣ CONFERÊNCIA
+            st.write("Aba de conferência...")
+            ws_conf = wb["Conferência"]
+            linha_excel = 4
+            for row in df_conf2.itertuples(index=False): 
+                ws_conf[f"A{linha_excel}"] = row.Codigo 
+                ws_conf[f"B{linha_excel}"] = row.ERG_U1
+                ws_conf[f"E{linha_excel}"] = row.EXT_U1
+                ws_conf[f"F{linha_excel}"] = row.FURO_U1
+                ws_conf[f"H{linha_excel}"] = row.ERG_U2
+                ws_conf[f"K{linha_excel}"] = row.EXT_U2
+                ws_conf[f"L{linha_excel}"] = row.FURO_U2
+                ws_conf[f"N{linha_excel}"] = row.ERG_S1
+                ws_conf[f"Q{linha_excel}"] = row.EXT_S1
+                ws_conf[f"R{linha_excel}"] = row.FURO_S1
+                ws_conf[f"T{linha_excel}"] = row.ERG_S2
+                ws_conf[f"W{linha_excel}"] = row.EXT_S2
+                ws_conf[f"X{linha_excel}"] = row.FURO_S2
+                ws_conf[f"Z{linha_excel}"] = row.ERG_D1
+                ws_conf[f"AC{linha_excel}"] = row.EXT_D1
+                ws_conf[f"AD{linha_excel}"] = row.FURO_D1
+                ws_conf[f"AF{linha_excel}"] = row.ERG_D2
+                ws_conf[f"AI{linha_excel}"] = row.EXT_D2
+                ws_conf[f"AJ{linha_excel}"] = row.FURO_D2
+                linha_excel += 1
 
+                        
+            # 2️⃣ SEMANAS
+            st.write("Abas semanais...")
+            # Vou criar as abas das semanas e estilizar os dias de feriados antes, depois só preencho
+            wb = criar_abas_por_semana(wb, df_det2.loc[0, "Dia"])
 
-
+            
+            # 3️⃣ TOTAL GERAL
+            st.write("Aba de totais gerais...")
 
             # Salvar em memória
+            status.update(label="Salvando...", state="running", expanded=False)
             st.write("Salvando a planilha...")
             buffer_pdo = BytesIO()
             wb.save(buffer_pdo)
             buffer_pdo.seek(0)
             st.session_state["buffer_pdo"] = buffer_pdo # Arquivo
-            st.session_state["pdo"] = f"{df_det_filtrado.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
+            st.session_state["pdo"] = f"{df_det2.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
 
             status.update(label="Processo terminado!", state="complete", expanded=False)
             st.success("Arquivos gerados com sucesso!")
@@ -163,9 +226,20 @@ if botao:
     except Exception as e:  
         status.update(label="Erro durante o processamento!", state="error")  
         st.error(f"🐞 Erro: {traceback.format_exc()}")
+    finally:
+        df_linhas = None
+        df_feriado_editado = None
+        df_feriado = None
+        df_det1 = None
+        df_det2 = None
+        df_conf1 = None
+        df_conf2 = None
+        df_conf_merged = None
+        buffer_pdo = None
+        wb = None
 
 # ✳️ Downloads ✳️
-if st.session_state.get("pdo", False):       
+if st.session_state.get("pdo", False):  
     col1, col2, col3 = st.columns([1,1,5], vertical_alignment='top')
     with col1:
         st.download_button(
