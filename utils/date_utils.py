@@ -31,6 +31,14 @@ def semanas_no_mes(data):
 
 
 #--------------------------------------------------------
+# Retorna a semana no mês que a data pertence
+# input: string da data
+# output: número da semana
+#--------------------------------------------------------
+def semana_do_mes(data):
+    return (data.day - 1) // 7 + 1
+
+#--------------------------------------------------------
 # Retorna a semana por extenso pelo número.
 # input: número da semana 
 # output: string extenso

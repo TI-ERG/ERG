@@ -10,10 +10,10 @@ from openpyxl.drawing.image import Image
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import PatternFill
 from utils import json_utils
 from utils import files_utils
 from utils import date_utils
-
 
 def criar_abas_por_semana(wb, data):
     if "Modelo" not in wb.sheetnames:
@@ -37,6 +37,7 @@ def criar_abas_por_semana(wb, data):
         nova_aba.title = nome_aba
 
     del wb["Modelo"]
+
     return wb
 
 
@@ -76,7 +77,7 @@ with st.container():
             df_feriado,
             num_rows="dynamic",
             column_config={
-                "data": st.column_config.DateColumn("Data do feriado", format="DD/MM/YYYY"),
+                "data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
                 "escala": st.column_config.SelectboxColumn("Escala", options=["Sábado", "Domingo"])
             }
         )
@@ -107,7 +108,7 @@ if botao:
             st.stop()
 
         with st.status("Lendo arquivos...", expanded=False) as status:
-            st.write("Processando os arquivos...")
+            st.write("📄 Processando os arquivos...")
             config = json_utils.ler_json("config.json") # Arquivo de configuração
             df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"])) # Matriz de linhas
             df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
@@ -116,7 +117,7 @@ if botao:
 
 
             status.update(label="Analisando dados...", state="running", expanded=False)
-            st.write("Processando - Controle Ooperacional Detalhado por Linha...")
+            st.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
             # Dropa colunas desnecessárias
             columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Sent.1', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
             df_det1 = df_det1.drop(columns=columns_to_drop)
@@ -132,10 +133,10 @@ if botao:
             df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
             df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
             
-            st.write("Processando - Desempenho Diário das Linhas...")
+            st.write("🧠 Processando - Desempenho Diário das Linhas...")
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
-            st.write("Processando os dados para conferência...")
+            st.write("🧠 Processando os dados para conferência...")
             df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
             df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
             # Atualizo com o feriado
@@ -146,9 +147,8 @@ if botao:
             df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
             # 3. Remove colunas extras
             df_conf1 = df_conf_merged
-            #df_conf1 = df_conf1.drop(columns=["Dia", "Observacao", "data", "escala"])
             df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"])
-
+            # 4. Agrupa
             df_conf2 = (
                 df_conf1
                     .assign(
@@ -169,14 +169,12 @@ if botao:
                     .reset_index()
             )
 
-            
             # Lendo Planilha modelo ModeloPDO.xlsx
             status.update(label="Preenchendo a planilha modelo...", state="running", expanded=False)
-            st.write("Processando a planilha...")
             wb = load_workbook(config['pdo']['modelo_pdo'])
 
             # 1️⃣ CONFERÊNCIA
-            st.write("Aba de conferência...")
+            st.write("✒️ Editando a planilha - Aba de conferência...")
             ws_conf = wb["Conferência"]
             linha_excel = 4
             for row in df_conf2.itertuples(index=False): 
@@ -203,17 +201,56 @@ if botao:
 
                         
             # 2️⃣ SEMANAS
-            st.write("Abas semanais...")
-            # Vou criar as abas das semanas e estilizar os dias de feriados antes, depois só preencho
+            st.write("✒️ Editando a planilha - Abas semanais...")
+            # Crio as abas das semanas
             wb = criar_abas_por_semana(wb, df_det2.loc[0, "Dia"])
-
+            # Informo os dias e estilizo os dias de feriados
+            posicoes_dias = {
+                0: ("E5", "E9"),    # segunda
+                1: ("K5", "K9"),    # terça
+                2: ("Q5", "Q9"),    # quarta
+                3: ("W5", "W9"),    # quinta
+                4: ("AC5", "AC9"),  # sexta
+                5: ("AI5", "AI9"),  # sábado
+                6: ("AO5", "AO9"),  # domingo
+            }
             
+            fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+            df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia") # Dias únicos no mês
+            feriados_dict = {
+                row["data"]: row["escala"]
+                for _, row in df_feriado_editado.iterrows()
+            }
+            abas_semanas = wb.sheetnames[2:]  # ignora as duas primeiras abas
+
+            for _, row in df_dias.iterrows():
+                data = row["Dia"] 
+                dia_semana = data.weekday() # 0=segunda ... 6=domingo
+                semana = date_utils.semana_do_mes(data) # 1 a 6
+                texto = f"{date_utils.dia_da_semana(data)} Dia: {data.day}"
+                cel1, cel2 = posicoes_dias[dia_semana]
+
+                ws_temp = wb[abas_semanas[semana - 1]]
+                # Estiliza feriado
+                if data in feriados_dict:
+                    texto = f"{texto} (Escala de {feriados_dict[data]})"
+                    ws_temp[cel1].fill = fill_feriado
+                    ws_temp[cel2].fill = fill_feriado
+
+                ws_temp[cel1] = texto
+                ws_temp[cel2] = texto
+
+
+            #‼️‼️‼️‼️‼️‼️‼️‼️
+
+
             # 3️⃣ TOTAL GERAL
-            st.write("Aba de totais gerais...")
+            st.write("✒️ Editando a planilha - Aba de totais...")
 
             # Salvar em memória
             status.update(label="Salvando...", state="running", expanded=False)
-            st.write("Salvando a planilha...")
+            st.write("💾 Salvando a planilha...")
             buffer_pdo = BytesIO()
             wb.save(buffer_pdo)
             buffer_pdo.seek(0)
