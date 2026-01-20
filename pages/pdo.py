@@ -6,7 +6,6 @@ import json
 import streamlit as st
 import pandas as pd
 import numpy as np
-from openpyxl.drawing.image import Image
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
@@ -14,10 +13,11 @@ from openpyxl.styles import PatternFill
 from utils import json_utils
 from utils import files_utils
 from utils import date_utils
+from utils import error_utils
 
 def criar_abas_por_semana(wb, data):
     if "Modelo" not in wb.sheetnames:
-        raise ValueError("A aba 'Modelo' não existe no workbook.")
+        raise error_utils.LayoutInesperado("A aba 'Modelo' não existe no workbook.")
 
     aba_modelo = wb["Modelo"]
     # Insiro informações padrões 
@@ -39,8 +39,6 @@ def criar_abas_por_semana(wb, data):
     del wb["Modelo"]
 
     return wb
-
-
 
 # Configuração da página
 st.set_page_config(layout="wide")

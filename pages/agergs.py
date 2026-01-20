@@ -1,25 +1,19 @@
-import io
-import re
 import traceback
 from datetime import date
 import calendar
 from utils import json_utils
 from utils import format_utils
 from utils import files_utils
+from utils import error_utils
 import xml.etree.ElementTree as ET
 import streamlit as st
 import pandas as pd
-import numpy as np
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
 from copy import copy
 
-# ---------------------------------------------------------
-# FUNÇÕES
-# ---------------------------------------------------------
-
-
+# region FUNÇÕES
 def atualizar_dados(df):
     def safe_div(a, b):
         return a / b if (b not in (0, None) and b != 0) else 0
@@ -53,8 +47,13 @@ def atualizar_dados(df):
     return df
 
 def ler_detalhado():
-    # Lê o arquivo
-    df = files_utils.ler_detalhado_linha(up_detalhado)
+    df = files_utils.ler_detalhado_linha(up_detalhado) # Lê o arquivo
+    # Verifica se o período e o arquivo conferem
+    periodo = pd.to_datetime(df.iloc[0]["Dia"], dayfirst=True, errors="coerce").date()
+    if periodo.month != mes or periodo.year != ano:
+        raise error_utils.ErroDePeriodo(periodo)
+    
+    st.write(f"{periodo.month} {mes}")
 
     # Dropa colunas desnecessárias
     columns_to_drop = ['Sent', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Docmto', 'Motorista', 'Cobrador','Km_h', 'Meta', 'CVg2', 'TipoViagem']
@@ -66,14 +65,9 @@ def ler_detalhado():
     df['Oferta'] = pd.to_numeric(df['Oferta'], errors='coerce')
     df['Dif'] = pd.to_numeric(df['Dif'], errors='coerce')
 
-    # Calculate the new '%Lotacao' column
-    df['%Lotacao'] = (df['Passag'] / df['Oferta'] * 100).fillna(0.0)
-
-    # Limit the '%Lotacao' column to two decimal places
-    df['%Lotacao'] = df['%Lotacao'].round(2)
-
-    # Dropa linhas com furo de viagens
-    df = df[~df['Observacao'].str.contains("Furo", na=False)].reset_index(drop=True)
+    df['%Lotacao'] = (df['Passag'] / df['Oferta'] * 100).fillna(0.0) # Calcula nova coluna '%Lotacao'
+    df['%Lotacao'] = df['%Lotacao'].round(2) # Formata para 2 decimais
+    df = df[~df['Observacao'].str.contains("Furo", na=False)].reset_index(drop=True) # Dropa linhas com furo de viagens
 
     return df
 
@@ -98,10 +92,12 @@ def ler_linhas():
     return df
 
 def gerar_resumo():
+    st.write("📄 Processando os arquivos...")
     df_frota = ler_frota()
     df_linhas = ler_linhas()
     df = ler_detalhado()
 
+    st.write("🧠 Processando as informações...")
     df = pd.merge(
         df,
         df_frota[['Prefixo', 'Idade']],
@@ -221,17 +217,7 @@ def gerar_resumo():
 
     df_base = df_base[ordem_final]
 
-    colunas_2_decimais = [
-        "Indice VG OF Realizadas",
-        "Indice Pontualidade",
-        "Desemp. VG Interromp",
-        "Idade Media",
-        "Indice Quebra",
-        "Indice Desv. Itinerário",
-        "Indice Acidentes"
-    ]
-
-    return format_utils.arredondar_decimais(df_base, colunas_2_decimais)
+    return format_utils.arredondar_decimais(df_base, COLUNAS_2_DECIMAIS)
 
 def gerar_xml(df):
     # Formato algumas colunas para duas casas decimais. 301, 304, 306, 308, 309, 310, 314
@@ -344,6 +330,28 @@ def gerar_xml(df):
         ET.SubElement(ind314, "val_indicador").text = str(row["Indice Acidentes"])
 
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+# endregion
+
+# region CONSTANTES
+COLUNAS_2_DECIMAIS = [
+    "Indice VG OF Realizadas",
+    "Indice Pontualidade",
+    "Desemp. VG Interromp",
+    "Idade Media",
+    "Indice Quebra",
+    "Indice Desv. Itinerário",
+    "Indice Acidentes"
+]
+
+# Colunas para mostrar help 
+COLUNAS_EDITAVEIS = [
+    "VG Realizadas",
+    "VG Previstas",
+    "Quebras",
+    "Acidentes",
+    "Desv. Itinerário"
+]
+# endregion
 
 st.set_page_config(layout="wide")
 st.subheader("Indicadores AGERGS")
@@ -366,7 +374,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# CONTAINER DO FORMULÁRIO
+# Container do formulário
 with st.container():
     with st.form("form_inputs"):
         st.subheader("Período de competência")
@@ -395,52 +403,50 @@ with st.container():
 
         gerar = st.form_submit_button("Gerar resumo", type="primary")
 
-# ---------------------------------------------------------
-# PROCESSAMENTO APÓS SUBMIT
-# ---------------------------------------------------------
+# ✳️ Processamento no submit
 if gerar:
     if up_detalhado is None:
         st.error("❌ Você precisa selecionar o arquivo CSV antes de continuar.")
         st.stop()
 
     try:
-        df_base = gerar_resumo()
-        # salva o df inicial
-        st.session_state.df = df_base.copy()
-        # ativa o modo resumo
-        st.session_state["mostrar_resumo"] = True
+        with st.status("Processando...", expanded=False) as status:
+            df_base = gerar_resumo()
+            st.write("💾 Salvando...")
+            
+            st.session_state.df = df_base.copy() # salva o df inicial
+            st.session_state["mostrar_resumo"] = True # ativa o modo resumo
+
+            status.update(label="Processo terminado!", state="complete", expanded=False)
+            st.success("Arquivo gerado com sucesso!")
 
     except Exception:
+        status.update(label="Erro durante o processamento!", state="error")
         st.error(f"🐞 Erro inesperado:\n\n```\n{traceback.format_exc()}\n```")
-
-# Colunas que você quer mostrar help 
-colunas_editaveis = [
-    "VG Realizadas",
-    "VG Previstas",
-    "Quebras",
-    "Acidentes",
-    "Desv. Itinerário"
-]
+    
+    finally:
+        df = None
+        df_base = None
+        df_editado = None
+        
 
 # Criar configuração de colunas com help
 if "df" in st.session_state:
     column_config = {}
     for col in st.session_state.df.columns:
-        if col in colunas_editaveis:
+        if col in COLUNAS_EDITAVEIS:
             column_config[col] = st.column_config.NumberColumn(
                 col,
                 help="Coluna editável",
             )
 
-# ---------------------------------------------------------
-# MOSTRAR EDITOR
-# ---------------------------------------------------------
+# ✳️ Mostrar data editor
 if st.session_state.get("mostrar_resumo", False):
 
     df_editado = st.data_editor(
         st.session_state.df,
         key="editor_resumo",
-        disabled=[col for col in st.session_state.df.columns if col not in colunas_editaveis],
+        disabled=[col for col in st.session_state.df.columns if col not in COLUNAS_EDITAVEIS],
         hide_index=True,
         height="content",
         column_config=column_config
@@ -450,23 +456,14 @@ if st.session_state.get("mostrar_resumo", False):
         col3, col4, col5 = st.columns([1.2, 1.2, 8])
 
         with col3:
-            # 2) BOTÃO — só ativa o gatilho
+            # Botão — só ativa o gatilho
             if st.button("🔄 Atualizar dados"):
-                colunas_2_decimais = [
-                    "Indice VG OF Realizadas",
-                    "Indice Pontualidade",
-                    "Desemp. VG Interromp",
-                    "Idade Media",
-                    "Indice Quebra",
-                    "Indice Desv. Itinerário",
-                    "Indice Acidentes"
-                ]
-                st.session_state.df = format_utils.arredondar_decimais(df_editado, colunas_2_decimais)
+                st.session_state.df = format_utils.arredondar_decimais(df_editado, COLUNAS_2_DECIMAIS)
                 st.session_state["recalcular"] = True
                 st.rerun()
 
         with col4:
-            # BOTÃO — Exporta XML
+            # Botão — Exporta XML
             st.download_button(
                 label="📥 Baixar XML",
                 data=gerar_xml(st.session_state.df.copy()),
@@ -474,20 +471,11 @@ if st.session_state.get("mostrar_resumo", False):
                 mime="application/xml"
             )
 
-    # 3) REPROCESSAMENTO — acontece em um rerun separado
+    # ✳️ REPROCESSAMENTO — acontece em um rerun separado
     if st.session_state.get("recalcular", False):
         
         df = atualizar_dados(st.session_state.df.copy()) # Atualizar os dados
-        colunas_2_decimais = [
-            "Indice VG OF Realizadas",
-            "Indice Pontualidade",
-            "Desemp. VG Interromp",
-            "Idade Media",
-            "Indice Quebra",
-            "Indice Desv. Itinerário",
-            "Indice Acidentes"
-        ]
-        st.session_state.df = format_utils.arredondar_decimais(df, colunas_2_decimais)
+        st.session_state.df = format_utils.arredondar_decimais(df, COLUNAS_2_DECIMAIS)
         st.session_state["recalcular"] = False
         st.rerun()
     
