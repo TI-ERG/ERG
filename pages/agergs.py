@@ -1,5 +1,6 @@
 import traceback
 import calendar
+from datetime import datetime
 from utils import json_utils
 from utils import format_utils
 from utils import files_utils
@@ -22,7 +23,6 @@ def column_help():
                 help=str(COLUNAS["Descrição"][idx]),
             )
     return column_help
-
 
 def atualizar_dados(df):
     def safe_div(a, b):
@@ -363,7 +363,6 @@ COLUNAS_EDITAVEIS = [
     "Acidentes",
     "Desv. Itinerário"
 ]
-
 # Colunas para mostrar help 
 COLUNAS = {
     "Coluna": ["301", "302", "303", "304", "305", "306", "307", "308", "309", "310", "311", "312", "313", "314"],
@@ -380,11 +379,11 @@ st.divider()
 
 # Formulário
 with st.form("form_inputs"):
-    c1, c2, c3 = st.columns([1.5, 2, 3], gap="small")
+    c1, c2, c3 = st.columns([1.8, 2, 3], gap="medium")
     with c1:
         with st.container():
             st.subheader("Período de competência")
-            col_mes, col_ano, col_space = st.columns([3, 2, 1])
+            col_mes, col_ano = st.columns([3, 2])
             with col_mes:
                 meses = {
                     "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
@@ -392,7 +391,7 @@ with st.form("form_inputs"):
                 }
                 mes_nome = st.selectbox("Mês", list(meses.keys()))
             with col_ano:
-                ano = st.number_input("Ano", min_value=2000, max_value=2100, value=2025)
+                ano = st.number_input("Ano", min_value=2000, max_value=2100, value=datetime.today().year)
 
     with c2:
         with st.container():
@@ -464,10 +463,10 @@ if st.session_state.get("agergs", False):
     )
 
     with st.container():
-        col3, col4, col5 = st.columns([1.2, 1.2, 8])
+        col3, col4, col5 = st.columns([1.2, 1.2, 8], gap="small")
         with col3:
             # Botão — só ativa o gatilho
-            if st.button("🔄 Atualizar"):
+            if st.button("🔄 Atualizar tabela"):
                 st.session_state.df = format_utils.arredondar_decimais(df_editado, COLUNAS_2_DECIMAIS)
                 st.session_state["recalcular_agergs"] = True
                 st.rerun()
@@ -475,7 +474,7 @@ if st.session_state.get("agergs", False):
         with col4:
             # Botão — Exporta XML
             st.download_button(
-                label="📥 Baixar XML",
+                label="📥 Download XML",
                 data=gerar_xml(st.session_state.df.copy()),
                 file_name="9034851700169-ITM-" + str(ano) + str(mes) + ".xml",
                 mime="application/xml"
