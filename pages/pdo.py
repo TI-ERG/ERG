@@ -171,7 +171,7 @@ if botao:
             wb = load_workbook(config['pdo']['modelo_pdo'])
 
             # 1️⃣ CONFERÊNCIA
-            st.write("✒️ Editando a planilha - Aba de conferência...")
+            st.write("✏ Editando a planilha - Aba de conferência...")
             ws_conf = wb["Conferência"]
             linha_excel = 4
             for row in df_conf2.itertuples(index=False): 
@@ -198,7 +198,7 @@ if botao:
 
                         
             # 2️⃣ SEMANAS
-            st.write("✒️ Editando a planilha - Abas semanais...")
+            st.write("✏ Editando a planilha - Abas semanais...")
             # Crio as abas das semanas
             wb = criar_abas_por_semana(wb, df_det2.loc[0, "Dia"])
             # Informo os dias e estilizo os dias de feriados
@@ -243,7 +243,7 @@ if botao:
 
 
             # 3️⃣ TOTAL GERAL
-            st.write("✒️ Editando a planilha - Aba de totais...")
+            st.write("✏ Editando a planilha - Aba de totais...")
 
             # Salvar em memória
             status.update(label="Salvando...", state="running", expanded=False)

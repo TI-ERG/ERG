@@ -268,7 +268,7 @@ if botao:
             mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
 
             # region ✳️ Preencher planilha BOD Metroplan ✳️
-            st.write("✒️ Preenchendo planilha Metroplan...")
+            st.write("✏ Preenchendo planilha Metroplan...")
 
             wb_met = load_workbook(config['bod']['modelo_metroplan'])
             wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
@@ -310,7 +310,7 @@ if botao:
             wb_erg = load_workbook(config['bod']['modelo_bod'])
 
             # 1️⃣ [BOD]
-            st.write("✒️ Preenchendo planilha BOD [BOD]...")
+            st.write("✏ Preenchendo planilha BOD [BOD]...")
             ws_bod = wb_erg['BOD']
             linha_modelo = 3 # Linha com a formatação de referência
             num_linhas_df = len(df_bod)
@@ -342,7 +342,7 @@ if botao:
             json_utils.salvar_json(config, 'config.json')
 
             # 2️⃣ [SINTETICO]
-            st.write("✒️ Preenchendo planilha BOD [SINTETICO]...")
+            st.write("✏ Preenchendo planilha BOD [SINTETICO]...")
             # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
             # Mapeamento das colunas e renomeando para os novos nomes desejados
             colunas_renomeadas = {
@@ -427,7 +427,7 @@ if botao:
                 EXPANDED = True
 
             # 3️⃣ [ATM]
-            st.write("✒️ Preenchendo planilha BOD [ATM]...")
+            st.write("✏ Preenchendo planilha BOD [ATM]...")
             ws_atm = wb_erg['ATM']
 
             primeiro_dia = date(ano, mes, 1)
