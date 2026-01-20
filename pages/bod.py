@@ -12,6 +12,9 @@ from copy import copy
 from utils import json_utils
 from utils import format_utils
 
+EXPANDED = False # Constante para o st.status se houver aviso
+
+# region FUNÇÕES
 def rel_viagens_expressas():
     exp = pd.read_csv(up_expressas, sep=';', encoding='Windows-1252', skiprows=2) # Pula as 2 primeiras linhas
     exp = exp.drop(columns=exp.columns[4]) # Retira a coluna sem valores
@@ -107,37 +110,30 @@ def dados_PLE():
 
     if not missing_met.empty:
         st.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas.json: {missing_met}")
+        EXPANDED = True
 
     return df_grouped
 
 def matriz_bod(arq):
-    # Viagens expressas
-    st.write("Lendo viagens expressas...")
-    df_exp = rel_viagens_expressas()
-    
-    # Dados das linhas
-    st.write("Lendo dados das linhas...")
-    df_transnet = rel_metroplan()
-
-    # Dados PLE
-    st.write("Lendo dados PLE's...")
-    df_ple = dados_PLE()
-
-    # Lendo a matriz BOD
-    st.write("Lendo matriz...")
-    df_matriz = pd.read_excel(arq, sheet_name='MATRIZ', decimal=',')
+    st.write("📄 Lendo arquivos...")
+    df_exp = rel_viagens_expressas() # Viagens expressas
+    df_transnet = rel_metroplan()    # Dados das linhas
+    df_ple = dados_PLE()             # Dados PLE
+    df_matriz = pd.read_excel(arq, sheet_name='MATRIZ', decimal=',') # Lendo a matriz BOD
 
     # Verifica se tem alguma linha no Transnet e na matriz não
     divergencia = df_transnet[~df_transnet['COD'].isin(df_matriz['COD'])]['COD']
     if not divergencia.empty:
         st.warning(f"⚠️ As seguintes linhas do arquivo do Transnet não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia.tolist()}")
+        EXPANDED = True
 
     # Verifica se tem alguma linha nos dados PLE e na matriz não
     divergencia_ple = df_ple[~df_ple['Cod_Met'].isin(df_matriz['COD'])]['Cod_Met']
     if not divergencia_ple.empty:
         st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
+        EXPANDED = True
 
-    st.write("Preparando matriz...")
+    st.write("🧠 Preparando matriz...")
     df_matriz["ANO"] = df_matriz["ANO"].fillna(df_transnet["ANO"].iloc[0]).astype(int) # Ano
     df_matriz["MES"] = df_matriz["MES"].fillna(df_transnet["MES"].iloc[0]).astype(int) # Mês
     
@@ -160,11 +156,10 @@ def matriz_bod(arq):
     df_exp.set_index(['Número Linha', 'Sentido'], inplace=True)
 
     # Preenchendo a coluna viagens expressas
-    st.write("Inserindo viagens expressas...")
+    st.write("🧠 Inserindo informações...")
     df_matriz.loc[df_exp.index, 'VR_EXP'] = df_exp['Qt.Viagens']
 
     # Preenchendo colunas
-    st.write("Inserindo informações...")
     df_matriz.loc[df_matriz['TAR_MAX_COM'] == 0, 'TAR_MAX_COM'] = df_matriz['TMCOM'] # Tárifa máxima comum
     df_matriz["TAR_MAX_COM"] = df_matriz["TAR_MAX_COM"].fillna(0)
     df_matriz["TAR_MAX_ESC"] = (df_matriz["TAR_MAX_COM"] * 0.9).where(df_matriz["SERV"] != "S") # Tárifa máxima escolar
@@ -180,7 +175,7 @@ def matriz_bod(arq):
     df_matriz["REC_TAR_ESC"] = df_matriz['ESC_R$'] # Receita tarifa escolar
     
     # Colunas/variáveis temporárias para cálculos das próximas colunas
-    st.write("Calculando colunas...")
+    st.write("🧠 Calculando colunas...")
     df_matriz['KM_LINHA'] = df_matriz['EXTP_SIMP'] + df_matriz['EXTP_EXP']
     comb_real = df_matriz['KM_LINHA'].sum() # Soma o KM_LINHA para obter o combustível real
     comb_desloc = km - comb_real # Combustível deslocamento, KM informado na página - combustível real
@@ -213,13 +208,10 @@ def matriz_bod(arq):
     df_temp = None
 
     return df_matriz
+# endregion
 
-# Configuração da página
 st.set_page_config(layout="wide")
-
-# Lê arquivo de configuração
-config = json_utils.ler_json("config.json")
-
+config = json_utils.ler_json("config.json") # Lê arquivo de configuração
 st.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
 
 # Colunas do form
@@ -245,9 +237,8 @@ with col4:
     st.subheader("KM Mensal", help="Transnet > Módulos > Frota > Abastecimento > Relatórios > Abastecimento por veículo", anchor=False)
     km = st.number_input("Abastecimento por Veículo", value=0)
 
-botao = st.sidebar.button("Iniciar", type="primary")
-
 st.divider()
+botao = st.sidebar.button("Iniciar", type="primary")
 
 if botao:
     try:
@@ -276,8 +267,8 @@ if botao:
             df_bod = matriz_bod(config['bod']['modelo_bod'])
             mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
 
-            # ✳️ Preencher planilha BOD Metroplan ✳️
-            st.write("Preenchendo planilha Metroplan...")
+            # region ✳️ Preencher planilha BOD Metroplan ✳️
+            st.write("✒️ Preenchendo planilha Metroplan...")
 
             wb_met = load_workbook(config['bod']['modelo_metroplan'])
             wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
@@ -304,8 +295,7 @@ if botao:
                 for col in range(26, 29):  
                     ws.cell(row=i, column=col).number_format = '0.00'
 
-            st.write("Salvando BOD Metroplan...")
-
+            st.write("💾 Salvando BOD Metroplan...")
             # Salva em memória 
             buffer_met = BytesIO() 
             wb_met.save(buffer_met) 
@@ -314,12 +304,13 @@ if botao:
             
             ws = None
             wb_met = None
+            # endregion
 
-            # ✳️ Preencher planilha BOD ERG ✳️
+            # region ✳️ Preencher planilha BOD ERG ✳️
             wb_erg = load_workbook(config['bod']['modelo_bod'])
 
             # 1️⃣ [BOD]
-            st.write("Preenchendo planilha BOD [BOD]...")
+            st.write("✒️ Preenchendo planilha BOD [BOD]...")
             ws_bod = wb_erg['BOD']
             linha_modelo = 3 # Linha com a formatação de referência
             num_linhas_df = len(df_bod)
@@ -337,7 +328,7 @@ if botao:
                     ws_bod.cell(row=i, column=j, value=valor)
 
             #Salvo os dados no arquivo de config para o PDO
-            st.write("Atualizando arquivo de config com os dados do BOD...")
+            st.write("🔄 Atualizando arquivo de config com os dados do BOD...")
 
             config['bod']['periodo'] = fr"{mes:02}/{ano}"
             config['bod']['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
@@ -351,7 +342,7 @@ if botao:
             json_utils.salvar_json(config, 'config.json')
 
             # 2️⃣ [SINTETICO]
-            st.write("Preenchendo planilha BOD [SINTETICO]...")
+            st.write("✒️ Preenchendo planilha BOD [SINTETICO]...")
             # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
             # Mapeamento das colunas e renomeando para os novos nomes desejados
             colunas_renomeadas = {
@@ -433,9 +424,10 @@ if botao:
             # Após sair do loop, verifica se há dados não inseridos
             if cods_restantes:
                 st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
+                EXPANDED = True
 
             # 3️⃣ [ATM]
-            st.write("Preenchendo planilha BOD [ATM]...")
+            st.write("✒️ Preenchendo planilha BOD [ATM]...")
             ws_atm = wb_erg['ATM']
 
             primeiro_dia = date(ano, mes, 1)
@@ -478,9 +470,10 @@ if botao:
             # Após sair do loop, verifica se há dados não inseridos
             if cods_restantes:
                 st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [ATM]: {list(cods_restantes)}")
+                EXPANDED = True
 
             # Salvar
-            st.write("Salvando BOD ERG...")
+            st.write("💾 Salvando BOD ERG...")
             wb_erg.remove(wb_erg["MATRIZ"])
             wb_erg.active = wb_erg.sheetnames.index('BOD')
 
@@ -492,6 +485,7 @@ if botao:
             wb_erg.save(buffer_erg)
             buffer_erg.seek(0)
             st.session_state["buffer_erg"] = buffer_erg
+            # endregion
 
             # ✳️ Comparativos de valores ✳️
             df_soma['VT'] = df_soma['VT'] + df_soma['PL']
@@ -521,7 +515,7 @@ if botao:
             st.success("Arquivos gerados com sucesso!")
 
     except Exception as e:    
-        status.update(label="Erro durante o processamento!", state="error")
+        status.update(label="Erro durante o processamento!", state="error", expanded=EXPANDED)
         st.error(f"🐞 Erro: {traceback.format_exc()}")
 
     finally:
