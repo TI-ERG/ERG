@@ -4,7 +4,6 @@ import calendar
 from utils import json_utils
 from utils import format_utils
 from utils import files_utils
-from utils import error_utils
 import xml.etree.ElementTree as ET
 import streamlit as st
 import pandas as pd
@@ -51,10 +50,10 @@ def ler_detalhado():
     # Verifica se o período e o arquivo conferem
     periodo = pd.to_datetime(df.iloc[0]["Dia"], dayfirst=True, errors="coerce").date()
     if periodo.month != mes or periodo.year != ano:
-        raise error_utils.ErroDePeriodo(periodo)
+        status.update(label="Erro durante o processamento!", state="error", expanded=True)
+        st.warning(f"⚠️ O arquivo não confere com o período informado! Arquivo: {periodo.month}/{periodo.year}")
+        st.stop()
     
-    st.write(f"{periodo.month} {mes}")
-
     # Dropa colunas desnecessárias
     columns_to_drop = ['Sent', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Docmto', 'Motorista', 'Cobrador','Km_h', 'Meta', 'CVg2', 'TipoViagem']
     df = df.drop(columns=columns_to_drop)
@@ -357,56 +356,55 @@ st.set_page_config(layout="wide")
 st.subheader("Indicadores AGERGS")
 st.divider()
 
-# CSS para limitar apenas o formulário
-st.markdown(
-    """
-    <style>
-    /* Limita largura de TODOS os forms da página */
-    div[data-testid="stForm"] {
-        max-width: 750px;
-        margin-left: auto;
-        margin-right: auto;
-        padding-top: 20px;
-        padding-bottom: 40px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# Formulário
+with st.form("form_inputs"):
+    c1, c2, c3 = st.columns([1.5, 2, 3], gap="small")
+    with c1:
+        with st.container():
+            st.subheader("Período de competência")
+            col_mes, col_ano, col_space = st.columns([3, 2, 1])
+            with col_mes:
+                meses = {
+                    "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
+                    "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12
+                }
+                mes_nome = st.selectbox("Mês", list(meses.keys()))
+            with col_ano:
+                ano = st.number_input("Ano", min_value=2000, max_value=2100, value=2025)
 
-# Container do formulário
-with st.container():
-    with st.form("form_inputs"):
-        st.subheader("Período de competência")
+    with c2:
+        with st.container():
+            st.subheader("Arquivo Transnet")
+            up_detalhado = st.file_uploader(
+                "Relatório Controle Operacional Detalhado por Linha",
+                type="csv",
+                key="upload_detalhado"
+            )
+    
+    with c3:
+        with st.container():
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            gerar = st.form_submit_button("Gerar resumo", type="primary")
 
-        col_mes, col_ano, col_space = st.columns([2, 1, 4])
-        with col_mes:
-            meses = {
-                "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
-                "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12
-            }
-            mes_nome = st.selectbox("Mês", list(meses.keys()))
 
-        with col_ano:
-            ano = st.number_input("Ano", min_value=2000, max_value=2100, value=2025)
-
-        mes = meses[mes_nome]
-        ultimo_dia = calendar.monthrange(int(ano), mes)[1]
-        competencia = pd.Timestamp(int(ano), mes, ultimo_dia)
-
-        st.subheader("Arquivo Transnet")
-        up_detalhado = st.file_uploader(
-            "Relatório Controle Operacional Detalhado por Linha",
-            type="csv",
-            key="upload_detalhado"
-        )
-
-        gerar = st.form_submit_button("Gerar resumo", type="primary")
+    mes = meses[mes_nome]
+    ultimo_dia = calendar.monthrange(int(ano), mes)[1]
+    competencia = pd.Timestamp(int(ano), mes, ultimo_dia)
+    
 
 # ✳️ Processamento no submit
 if gerar:
+    # Remove os botões
+    st.session_state.pop("agergs", None)
+
     if up_detalhado is None:
-        st.error("❌ Você precisa selecionar o arquivo CSV antes de continuar.")
+        st.error("⚠️ Você precisa selecionar o arquivo CSV antes de continuar.")
         st.stop()
 
     try:
@@ -415,7 +413,7 @@ if gerar:
             st.write("💾 Salvando...")
             
             st.session_state.df = df_base.copy() # salva o df inicial
-            st.session_state["mostrar_resumo"] = True # ativa o modo resumo
+            st.session_state["agergs"] = True # ativa o modo resumo
 
             status.update(label="Processo terminado!", state="complete", expanded=False)
             st.success("Arquivo gerado com sucesso!")
@@ -441,7 +439,7 @@ if "df" in st.session_state:
             )
 
 # ✳️ Mostrar data editor
-if st.session_state.get("mostrar_resumo", False):
+if st.session_state.get("agergs", False):
 
     df_editado = st.data_editor(
         st.session_state.df,
@@ -457,9 +455,9 @@ if st.session_state.get("mostrar_resumo", False):
 
         with col3:
             # Botão — só ativa o gatilho
-            if st.button("🔄 Atualizar dados"):
+            if st.button("🔄 Atualizar"):
                 st.session_state.df = format_utils.arredondar_decimais(df_editado, COLUNAS_2_DECIMAIS)
-                st.session_state["recalcular"] = True
+                st.session_state["recalcular_agergs"] = True
                 st.rerun()
 
         with col4:
@@ -472,11 +470,11 @@ if st.session_state.get("mostrar_resumo", False):
             )
 
     # ✳️ REPROCESSAMENTO — acontece em um rerun separado
-    if st.session_state.get("recalcular", False):
+    if st.session_state.get("recalcular_agergs", False):
         
         df = atualizar_dados(st.session_state.df.copy()) # Atualizar os dados
         st.session_state.df = format_utils.arredondar_decimais(df, COLUNAS_2_DECIMAIS)
-        st.session_state["recalcular"] = False
+        st.session_state["recalcular_agergs"] = False
         st.rerun()
     
 

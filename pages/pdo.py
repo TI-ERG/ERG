@@ -2,10 +2,8 @@ import traceback
 from io import BytesIO
 from datetime import date
 from calendar import monthrange
-import json
 import streamlit as st
 import pandas as pd
-import numpy as np
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter
@@ -13,11 +11,12 @@ from openpyxl.styles import PatternFill
 from utils import json_utils
 from utils import files_utils
 from utils import date_utils
-from utils import error_utils
 
 def criar_abas_por_semana(wb, data):
     if "Modelo" not in wb.sheetnames:
-        raise error_utils.LayoutInesperado("A aba 'Modelo' não existe no workbook.")
+        status.update(label="Erro durante o processamento!", state="error", expanded=True)
+        st.warning(f"⚠️ A aba Modelo não existe na planilha.")
+        st.stop()
 
     aba_modelo = wb["Modelo"]
     # Insiro informações padrões 
