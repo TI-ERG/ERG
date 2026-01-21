@@ -1,10 +1,5 @@
 import streamlit as st
-import json
 from utils import json_utils
-
-# Caminho arquivos
-#ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-#CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
 
 # Lê o arquivo config e define o arquivo de linhas
 config = json_utils.ler_json("config.json")
@@ -13,8 +8,12 @@ arq_frota = config["matrizes"]["frota"]
 def carregar():
     return json_utils.ler_json(arq_frota)
 
-st.subheader("Edição de matriz - Frota")
+st.header("🚌 FROTA", anchor=False)
+st.markdown("**EDIÇÃO DE MATRIZ**")
 st.divider()
+
+# CSS para limitar a largura do data_editor 
+st.markdown(""" <style> div[data-testid="stFullScreenFrame"] { max-width: 400px; } </style> """, unsafe_allow_html=True)
 
 # Mostrar mensagem se acabou de salvar 
 if st.session_state.get("salvo"): 

@@ -43,6 +43,9 @@ def criar_abas_por_semana(wb, data):
 st.set_page_config(layout="wide")
 
 # Layout
+st.header("📄 [PDO] Dados Operacionais", anchor=False)
+st.divider()
+
 with st.container():
     col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
 

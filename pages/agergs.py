@@ -361,7 +361,7 @@ COLUNAS = {
 # endregion
 
 st.set_page_config(layout="wide")
-st.subheader("Indicadores AGERGS")
+st.header("📄 Indicadores AGERGS", anchor=False)
 st.divider()
 
 # Inputs

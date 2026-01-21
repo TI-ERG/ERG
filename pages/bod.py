@@ -212,7 +212,10 @@ def matriz_bod(arq):
 
 st.set_page_config(layout="wide")
 config = json_utils.ler_json("config.json") # Lê arquivo de configuração
+
+st.header("📄 [BOD] Boletim Oferta e Demanda", anchor=False)
 st.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
+st.divider()
 
 # Colunas do form
 col1, col2, col3, col4 = st.columns([2, 2, 2, 1], vertical_alignment='top')
