@@ -121,17 +121,17 @@ def gerar_resumo():
     df_aggregated = df_aggregated.merge(df_previstas[["Codigo", "TPrevMet"]], on="Codigo", how="left")
     df_aggregated["TPrevMet"] = df_aggregated["TPrevMet"].fillna(0).astype(int)
 
-    # Adiciona coluna linha raiz
+    # Merge com as linhas
     df_linhas = df_linhas.rename(columns={'Cod_Met': 'Codigo'})
-    df_merged_raiz = pd.merge(
+    df_merged_with_linha_raiz = pd.merge(
         df_aggregated,
-        df_linhas[['Codigo', 'Raiz']],
+        df_linhas[['Codigo', 'Raiz', 'Linha', 'Modal']],
         on='Codigo',
         how='left'
     )
-
+    
     # Agrupa por raíz e soma
-    df_agregado_sum_cols = df_merged_raiz.groupby('Raiz').agg({
+    df_agregado_sum_cols = df_merged_with_linha_raiz.groupby('Raiz').agg({
         'Total_THor': 'sum',
         'Total_Real': 'sum',
         'TPrevMet': 'sum',
@@ -141,15 +141,17 @@ def gerar_resumo():
         "maior100": 'sum',
         'Idade': 'sum'
     }).reset_index()
-
-    df_base = df_agregado_sum_cols.merge(
-        df_linhas[["Codigo", "Linha", "Modal"]],
-        left_on="Raiz",
-        right_on="Codigo",
-        how="left"
-    ).drop(columns=["Codigo"])
-
-    df_base = df_base.rename(columns={"Raiz": "Codigo"})
+    
+    df_linha_name = df_merged_with_linha_raiz.groupby('Raiz')['Linha_y'].first().reset_index()
+    df_linha_name = df_linha_name.rename(columns={'Linha_y': 'Linha'})
+    st.write(df_linha_name)
+    # Extract 'Modal' for each Raiz group
+    df_modal = df_merged_with_linha_raiz.groupby('Raiz')['Modal'].first().reset_index()
+    st.write(df_modal)
+    # Merge all three aggregated parts
+    df_base = pd.merge(df_linha_name, df_agregado_sum_cols, on='Raiz', how='left')
+    df_base = pd.merge(df_base, df_modal, on='Raiz', how='left') # Merge Modal
+    df_base = df_base.rename(columns={'Raiz': 'Codigo'})
 
     # Calculate 'Idade_media', handling division by zero
     df_base['Idade Media'] = df_base.apply(
