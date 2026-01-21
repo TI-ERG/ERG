@@ -1,10 +1,29 @@
 import io
 import re
 import pandas as pd
+from utils import json_utils
 
-#def ler_desempenho_diario_linha(file):
+# Ler o arquivo matriz da frota
+def ler_frota(data):
+    config = json_utils.ler_json('config.json')
+    frota = json_utils.ler_json(config["matrizes"]["frota"])
 
+    df = pd.DataFrame(frota)
+    df['Aquisição'] = pd.to_datetime(df['Aquisição'], format="%d/%m/%Y")
+    df['Prefixo'] = pd.to_numeric(df['Prefixo'], errors='coerce')
+    df["Idade"] = (data - df["Aquisição"]).dt.days / 365
 
+    return df
+
+# Ler o arquivo matriz das linhas
+def ler_linhas():
+    config = json_utils.ler_json('config.json')
+    linhas = json_utils.ler_json(config["matrizes"]["linhas"])
+
+    df = pd.DataFrame(linhas)
+    return df
+
+# Ler o arquivo do relatório detalhado por linha
 def ler_detalhado_linha(file):
     # Ler o arquivo do Transnet
     linhas_limpas = []
@@ -70,3 +89,16 @@ def ler_detalhado_linha(file):
     df = df.dropna(subset=['Observacao']).reset_index(drop=True)
 
     return df 
+
+# Ler a planilha de viagens previstas
+def ler_viagens_previstas(file):
+    df = pd.read_excel(file, skiprows=6)
+    df.rename(columns={'Unnamed: 0': 'Codigo', 'TOTAL': 'U1', 'TOTAL.1': 'S1', 'TOTAL.2': 'D1', 'TOTAL.3': 'U2', 'TOTAL.4': 'S2', 'TOTAL.5': 'D2'}, inplace=True)
+    df = df.dropna(subset=['Codigo', 'DIAS'])
+    df = df.drop(columns=['ÚTEIS', 'DIAS', 'SAB', 'DIAS.1', 'DOM', 'DIAS.2', 'Unnamed: 10', 'ÚTEIS.1', 'DIAS.3', 'SAB.1', 'DIAS.4', 'DOM.1', 'DIAS.5', 'Unnamed: 20'])
+    df = df[~df["Codigo"].str.contains("TOTAL", case=False, na=False)]
+    df = df.sort_values("Codigo")
+
+    return df
+
+#def ler_desempenho_diario_linha(file):

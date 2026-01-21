@@ -1,7 +1,6 @@
 import traceback
 import calendar
 from datetime import datetime
-from utils import json_utils
 from utils import format_utils
 from utils import files_utils
 import xml.etree.ElementTree as ET
@@ -81,33 +80,15 @@ def ler_detalhado():
 
     return df
 
-def ler_frota():
-    # Ler o arquivo matriz da frota
-    config = json_utils.ler_json('config.json')
-    frota = json_utils.ler_json(config["matrizes"]["frota"])
-
-    df = pd.DataFrame(frota)
-    df['Aquisição'] = pd.to_datetime(df['Aquisição'], format="%d/%m/%Y")
-    df['Prefixo'] = pd.to_numeric(df['Prefixo'], errors='coerce')
-    df["Idade"] = (competencia - df["Aquisição"]).dt.days / 365
-
-    return df
-
-def ler_linhas():
-    # Ler o arquivo matriz das linhas
-    config = json_utils.ler_json('config.json')
-    linhas = json_utils.ler_json(config["matrizes"]["linhas"])
-
-    df = pd.DataFrame(linhas)
-    return df
-
 def gerar_resumo():
     st.write("📄 Processando os arquivos...")
-    df_frota = ler_frota()
-    df_linhas = ler_linhas()
+    df_frota = files_utils.ler_frota(competencia)
+    df_linhas = files_utils.ler_linhas()
+    df_previstas = files_utils.ler_viagens_previstas(up_previstas)
     df = ler_detalhado()
 
     st.write("🧠 Processando as informações...")
+    # Merge com a frota
     df = pd.merge(
         df,
         df_frota[['Prefixo', 'Idade']],
@@ -115,15 +96,14 @@ def gerar_resumo():
         right_on='Prefixo',
         how='left'
     )
-
+    # Organiza colunas
     df = df.drop(columns=['Prefixo'])
-
     cols = df.columns.tolist()
     veiculo_idx = cols.index('Veiculo')
     cols.remove('Idade')
     cols.insert(veiculo_idx + 1, 'Idade')
     df = df[cols]
-
+    # Agrega totais
     df_aggregated = df.groupby('Codigo').agg(
         Linha=('Linha', 'first'),
         Total_THor=('THor', 'count'),
@@ -134,26 +114,33 @@ def gerar_resumo():
         maior100=('%Lotacao', lambda x: (x > 100.00).sum()),
         Idade=('Idade', 'sum')
     ).reset_index()
+    # Totaliza previstas
+    cols_somar = ["U1", "S1", "D1", "U2", "S2", "D2"]
+    df_previstas["TPrevMet"] = df_previstas[cols_somar].sum(axis=1)
+    df_previstas = df_previstas[["Codigo", "TPrevMet"]]
+    df_aggregated = df_aggregated.merge(df_previstas[["Codigo", "TPrevMet"]], on="Codigo", how="left")
+    df_aggregated["TPrevMet"] = df_aggregated["TPrevMet"].fillna(0).astype(int)
 
+    # Merge com as linhas
     df_linhas = df_linhas.rename(columns={'Cod_Met': 'Codigo'})
-
     df_merged_with_linha_raiz = pd.merge(
         df_aggregated,
         df_linhas[['Codigo', 'Raiz', 'Linha', 'Modal']],
         on='Codigo',
         how='left'
     )
-
+    # Agrupa por raíz e soma
     df_agregado_sum_cols = df_merged_with_linha_raiz.groupby('Raiz').agg({
         'Total_THor': 'sum',
         'Total_Real': 'sum',
+        'TPrevMet': 'sum',
         'Atrasos': 'sum',
         'ate80': 'sum',
         "de80a100": 'sum',
         "maior100": 'sum',
         'Idade': 'sum'
     }).reset_index()
-
+    
     df_linha_name = df_merged_with_linha_raiz.groupby('Raiz')['Linha_y'].first().reset_index()
     df_linha_name = df_linha_name.rename(columns={'Linha_y': 'Linha'})
 
@@ -182,12 +169,12 @@ def gerar_resumo():
     df_base.loc[condition, 'maior100'] = 0
 
     # Renomeando colunas
-    df_base = df_base.rename(columns={"Indice VG OF Realizadas" : "301", "Total_Real": "302", "Indice Pontualidade" : "304",
+    df_base = df_base.rename(columns={"Indice VG OF Realizadas" : "301", "Total_Real": "302", "TPrevMet": "303", "Indice Pontualidade" : "304",
                                       "Atrasos" : "305", "Desemp. VG Interromp" : "306", "VG Interrompidas" : "307", "Idade Media" : "308",
                                       "Indice Quebra" : "309", "Indice Desv. Itinerário" : "310", "Indice Acidentes" : "314"})
 
     # Criando novas
-    df_base["303"] = df_base.get("303", 0) # Viagens previstas
+    #df_base["303"] = df_base.get("303", 0) # Viagens previstas
     df_base["307"] = df_base.get("307", 0) # Viagens interrompidas
     df_base["Quebras"] = df_base.get("Quebras", 0)
     df_base["Acidentes"] = df_base.get("Acidentes", 0)
@@ -377,46 +364,32 @@ st.set_page_config(layout="wide")
 st.subheader("Indicadores AGERGS")
 st.divider()
 
-# Formulário
-with st.form("form_inputs"):
-    c1, c2, c3 = st.columns([1.8, 2, 3], gap="medium")
-    with c1:
-        with st.container():
-            st.subheader("Período de competência")
-            col_mes, col_ano = st.columns([3, 2])
-            with col_mes:
-                meses = {
-                    "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
-                    "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12
-                }
-                mes_nome = st.selectbox("Mês", list(meses.keys()))
-            with col_ano:
-                ano = st.number_input("Ano", min_value=2000, max_value=2100, value=datetime.today().year)
+# Inputs
+c1, c2, c3 = st.columns([1.8, 2, 2], gap="medium")
+with c1:
+    st.subheader("Período de competência")
+    col_mes, col_ano = st.columns([3, 2])
+    with col_mes:
+        meses = {
+            "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
+            "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12
+        }
+        mes_nome = st.selectbox("Mês", list(meses.keys()))
+    with col_ano:
+        ano = st.number_input("Ano", min_value=2000, max_value=2100, value=datetime.today().year)
 
-    with c2:
-        with st.container():
-            st.subheader("Arquivo Transnet")
-            up_detalhado = st.file_uploader(
-                "Relatório Controle Operacional Detalhado por Linha",
-                type="csv",
-                key="upload_detalhado"
-            )
-    
-    with c3:
-        with st.container():
-            st.write("")
-            st.write("")
-            st.write("")
-            st.write("")
-            st.write("")
-            st.write("")
-            st.write("")
-            gerar = st.form_submit_button("Gerar resumo", type="primary")
+with c2:
+    st.subheader("Dados de viagens", help="Relatório Controle Operacional Detalhado por Linha", anchor=False)
+    up_detalhado = st.file_uploader("Relatório Controle Operacional Detalhado por Linha", type="csv", key="upload_detalhado")
+with c3:
+    st.subheader("Viagens Previstas", help="Planilha de viagens previstas", anchor=False)
+    up_previstas = st.file_uploader("Selecione um arquivo .XLSX", type='xlsx', key='upload_previstas')
 
+mes = meses[mes_nome]
+ultimo_dia = calendar.monthrange(int(ano), mes)[1]
+competencia = pd.Timestamp(int(ano), mes, ultimo_dia)
 
-    mes = meses[mes_nome]
-    ultimo_dia = calendar.monthrange(int(ano), mes)[1]
-    competencia = pd.Timestamp(int(ano), mes, ultimo_dia)
+gerar = st.sidebar.button("Gerar resumo", type="primary")
 
 # ✳️ Processamento no submit
 if gerar:
@@ -424,7 +397,11 @@ if gerar:
     st.session_state.pop("agergs", None)
 
     if up_detalhado is None:
-        st.error("⚠️ Você precisa selecionar o arquivo CSV antes de continuar.")
+        st.error("⚠️ Você precisa selecionar o arquivo do relatório controle operacional detalhado por linha antes de continuar.")
+        st.stop()
+    
+    if up_previstas is None:
+        st.error("⚠️ Você precisa selecionar a planilha de viagens previstas antes de continuar.")
         st.stop()
 
     try:
@@ -446,6 +423,7 @@ if gerar:
         df = None
         df_base = None
         df_editado = None
+
         
 
 # ✳️ Mostrar data editor

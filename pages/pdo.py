@@ -58,7 +58,7 @@ with st.container():
 
     with col3:
         # Upload da planilha para conferência das viagens
-        st.subheader("Planilha para conferência", help="Planilha enviada pelo Paulo", anchor=False)
+        st.subheader("Viagens Previstas", help="Planilha de viagens previstas", anchor=False)
         up_conferencia = st.file_uploader("Selecione um arquivo .XLSX", type='xlsx', key=3)
 
 with st.container():       
