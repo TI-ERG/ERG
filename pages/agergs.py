@@ -379,10 +379,10 @@ with c1:
         ano = st.number_input("Ano", min_value=2000, max_value=2100, value=datetime.today().year)
 
 with c2:
-    st.subheader("Dados de viagens", help="Relatório Controle Operacional Detalhado por Linha", anchor=False)
+    st.subheader("Dados de viagens", help="Transnet > Módulos > Tráfego/Arrecadação > Consultas/Relatórios > Controle Operacional/Tráfego > Controle Operacional Detalhado Por Linha", anchor=False)
     up_detalhado = st.file_uploader("Relatório Controle Operacional Detalhado por Linha", type="csv", key="upload_detalhado")
 with c3:
-    st.subheader("Viagens Previstas", help="Planilha de viagens previstas", anchor=False)
+    st.subheader("Viagens previstas", help="Planilha de viagens previstas", anchor=False)
     up_previstas = st.file_uploader("Selecione um arquivo .XLSX", type='xlsx', key='upload_previstas')
 
 mes = meses[mes_nome]
