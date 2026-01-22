@@ -40,7 +40,7 @@ with tab1:
             },
         num_rows="dynamic"
     )
-    linhas.sort(key=lambda x: x["Cod_Met"])
+    linhas.sort(key=lambda x: x["Cod_Met"] or "")
 
     if st.button("💾 Salvar", key="linhas"):
         json_utils.salvar_json(linhas, arq_linhas)
@@ -57,7 +57,7 @@ with tab2:
             },
         num_rows="dynamic"
     )
-    linhas_raiz.sort(key=lambda x: x["Cod_Raiz"])
+    linhas_raiz.sort(key=lambda x: x["Cod_Raiz"] or "")
 
     if st.button("💾 Salvar", key="raiz"):
         json_utils.salvar_json(linhas_raiz, arq_linhas_raiz)

@@ -1,303 +1,303 @@
 [
-  {
-    "Cod_Bil": "1063",
-    "Cod_Met": "A131B",
-    "Nome_Met": "ALIMENTADORA COLINA",
-    "Cod_Raiz": "A131",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1002",
-    "Cod_Met": "A151A",
-    "Nome_Met": "ALIMENTADORA FLORIDA/CATAMARA",
-    "Cod_Raiz": "A151",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1028",
-    "Cod_Met": "A153A",
-    "Nome_Met": "ALIMENTADORA JARDIM DOS LAGOS",
-    "Cod_Raiz": "A153",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1027",
-    "Cod_Met": "A153B",
-    "Nome_Met": "ALIMENTADORA BOM FIM",
-    "Cod_Raiz": "A153",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1025",
-    "Cod_Met": "A154A",
-    "Nome_Met": "ALIMENTADORA SÃO FRANCISCO",
-    "Cod_Raiz": "A154",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1020",
-    "Cod_Met": "A161",
-    "Nome_Met": "ALIMENTADORA SÃO JORGE",
-    "Cod_Raiz": "A161",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1021",
-    "Cod_Met": "A161A",
-    "Nome_Met": "ALIMENTADORA PASSO FUNDO",
-    "Cod_Raiz": "A161",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1023",
-    "Cod_Met": "A162A",
-    "Nome_Met": "ALIMENTADORA PEDRAS BRANCAS",
-    "Cod_Raiz": "A162",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1064",
-    "Cod_Met": "A162B",
-    "Nome_Met": "ALIMENTADORA PARQUE 35",
-    "Cod_Raiz": "A162",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1074",
-    "Cod_Met": "A501",
-    "Nome_Met": "ALIMENTADORA SANS SOUCI",
-    "Cod_Raiz": "A501",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1053",
-    "Cod_Met": "A501A",
-    "Nome_Met": "ALIMENTADORA CENTRO NOVO",
-    "Cod_Raiz": "A501",
-    "Modal": "IO"
-  },
-  {
-    "Cod_Bil": "1005",
-    "Cod_Met": "L121",
-    "Nome_Met": "P. ALEGRE - SANTA RITA/VIA FR",
-    "Cod_Raiz": "L121",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1033",
-    "Cod_Met": "L121A",
-    "Nome_Met": "P. ALEGRE - SANTA RITA/VIA CB",
-    "Cod_Raiz": "L121",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1034",
-    "Cod_Met": "L121B",
-    "Nome_Met": "P. ALEGRE - SANTA RITA/COHAB /VIA FR",
-    "Cod_Raiz": "L121",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1035",
-    "Cod_Met": "L121C",
-    "Nome_Met": "P. ALEGRE - SANTA RITA/VIA CB (SD EXECUTIVO)",
-    "Cod_Raiz": "L121",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1037",
-    "Cod_Met": "L121E",
-    "Nome_Met": "P. ALEGRE - SANTA RITA/VILA IPÊ /VIA FR",
-    "Cod_Raiz": "L121",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1004",
-    "Cod_Met": "L131",
-    "Nome_Met": "P. ALEGRE - COLINA/VIA FR",
-    "Cod_Raiz": "L131",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1058",
-    "Cod_Met": "L131B",
-    "Nome_Met": "P. ALEGRE - COLINA/VIA CB (SD EXECUTIVO)",
-    "Cod_Raiz": "L131",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1032",
-    "Cod_Met": "L131D",
-    "Nome_Met": "P. ALEGRE - FATIMA/VIA CB (SD EXECUTIVO)",
-    "Cod_Raiz": "L131",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1061",
-    "Cod_Met": "L131E",
-    "Nome_Met": "TRONCAL P.ALEGRE - FÁTIMA VIA FR/BR-116",
-    "Cod_Raiz": "L131",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1013",
-    "Cod_Met": "L151A",
-    "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB (SD/EXECUTIVO)",
-    "Cod_Raiz": "L151",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1014",
-    "Cod_Met": "L151B",
-    "Nome_Met": "TRONCAL P. ALEGRE - FLORIDA/VIA ENGENHO/FR",
-    "Cod_Raiz": "L151",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1015",
-    "Cod_Met": "L151C",
-    "Nome_Met": "P. ALEGRE - FLORIDA /VIA CB/CL (SD/EXECUTIVO)",
-    "Cod_Raiz": "L151",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1016",
-    "Cod_Met": "L151D",
-    "Nome_Met": "TRONCAL P. ALEGRE - FLORIDA/VIA FR",
-    "Cod_Raiz": "L151",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1017",
-    "Cod_Met": "L151E",
-    "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB/PRB (SD EXECUTIVO)",
-    "Cod_Raiz": "L151",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1051",
-    "Cod_Met": "L151F",
-    "Nome_Met": "P. ALEGRE - FLORIDA/VIA GE/PB (SD EXECUTIVO)",
-    "Cod_Raiz": "L151",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1012",
-    "Cod_Met": "L151G",
-    "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB/ML (SD EXECUTIVO)",
-    "Cod_Raiz": "L151",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1018",
-    "Cod_Met": "L161",
-    "Nome_Met": "P. ALEGRE - SÃO JORGE/VILA NOVA",
-    "Cod_Raiz": "L161",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1019",
-    "Cod_Met": "L161A",
-    "Nome_Met": "P. ALEGRE - PASSO FUNDO/SÃO JORGE",
-    "Cod_Raiz": "L161",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1006",
-    "Cod_Met": "L500",
-    "Nome_Met": "P. ALEGRE - SANS SOUCI",
-    "Cod_Raiz": "L500",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1060",
-    "Cod_Met": "L500C",
-    "Nome_Met": "P. ALEGRE - SANS SOUCI/VIA CB (SD EXECUTIVO)",
-    "Cod_Raiz": "L500",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1054",
-    "Cod_Met": "L501",
-    "Nome_Met": "TRONCAL P. ALEGRE - ELDORADO DO SUL/VIA FR",
-    "Cod_Raiz": "L501",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1042",
-    "Cod_Met": "L501B",
-    "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/VIA CB (SD/EXECUTIVO)",
-    "Cod_Raiz": "L501",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1044",
-    "Cod_Met": "L501D",
-    "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/MEDIANEIRA",
-    "Cod_Raiz": "L501",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1045",
-    "Cod_Met": "L501E",
-    "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/CIDADE VERDE",
-    "Cod_Raiz": "L501",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1003",
-    "Cod_Met": "L501F",
-    "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/CENTRO NOVO",
-    "Cod_Raiz": "L501",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1062",
-    "Cod_Met": "L501G",
-    "Nome_Met": "P. ALEGRE - ELDORADO DO SUL /VIA ME (SD EXECUTIVO)",
-    "Cod_Raiz": "L501",
-    "Modal": "SD"
-  },
-  {
-    "Cod_Bil": "1048",
-    "Cod_Met": "M105",
-    "Nome_Met": "TRANSVERSAL METROPOLITANA 5 VIA AEROPORTO",
-    "Cod_Raiz": "M105",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1008",
-    "Cod_Met": "R860",
-    "Nome_Met": "GUAIBA/FLORIDA - ELDORADO DO SUL/VIA SS",
-    "Cod_Raiz": "R860",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1050",
-    "Cod_Met": "R860B",
-    "Nome_Met": "GUAIBA/FLORIDA - ELDORADO DO SUL/VIA BR116",
-    "Cod_Raiz": "R860",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1009",
-    "Cod_Met": "R862",
-    "Nome_Met": "GUAIBA - BOM RETIRO /VIA LG",
-    "Cod_Raiz": "R862",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1010",
-    "Cod_Met": "R863",
-    "Nome_Met": "GUAIBA - BOM RETIRO /VIA FSM",
-    "Cod_Raiz": "R863",
-    "Modal": "CM"
-  },
-  {
-    "Cod_Bil": "1039",
-    "Cod_Met": "RT001",
-    "Nome_Met": "PORTO ALEGRE - ULBRA/VIA CB/FR",
-    "Cod_Raiz": "RT001",
-    "Modal": "SD"
-  }
+    {
+        "Cod_Bil": "1063",
+        "Cod_Met": "A131B",
+        "Nome_Met": "ALIMENTADORA COLINA",
+        "Cod_Raiz": "A131",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1002",
+        "Cod_Met": "A151A",
+        "Nome_Met": "ALIMENTADORA FLORIDA/CATAMARA",
+        "Cod_Raiz": "A151",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1028",
+        "Cod_Met": "A153A",
+        "Nome_Met": "ALIMENTADORA JARDIM DOS LAGOS",
+        "Cod_Raiz": "A153",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1027",
+        "Cod_Met": "A153B",
+        "Nome_Met": "ALIMENTADORA BOM FIM",
+        "Cod_Raiz": "A153",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1025",
+        "Cod_Met": "A154A",
+        "Nome_Met": "ALIMENTADORA SÃO FRANCISCO",
+        "Cod_Raiz": "A154",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1020",
+        "Cod_Met": "A161",
+        "Nome_Met": "ALIMENTADORA SÃO JORGE",
+        "Cod_Raiz": "A161",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1021",
+        "Cod_Met": "A161A",
+        "Nome_Met": "ALIMENTADORA PASSO FUNDO",
+        "Cod_Raiz": "A161",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1023",
+        "Cod_Met": "A162A",
+        "Nome_Met": "ALIMENTADORA PEDRAS BRANCAS",
+        "Cod_Raiz": "A162",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1064",
+        "Cod_Met": "A162B",
+        "Nome_Met": "ALIMENTADORA PARQUE 35",
+        "Cod_Raiz": "A162",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1074",
+        "Cod_Met": "A501",
+        "Nome_Met": "ALIMENTADORA SANS SOUCI",
+        "Cod_Raiz": "A501",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1053",
+        "Cod_Met": "A501A",
+        "Nome_Met": "ALIMENTADORA CENTRO NOVO",
+        "Cod_Raiz": "A501",
+        "Modal": "IO"
+    },
+    {
+        "Cod_Bil": "1005",
+        "Cod_Met": "L121",
+        "Nome_Met": "P. ALEGRE - SANTA RITA/VIA FR",
+        "Cod_Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1033",
+        "Cod_Met": "L121A",
+        "Nome_Met": "P. ALEGRE - SANTA RITA/VIA CB",
+        "Cod_Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1034",
+        "Cod_Met": "L121B",
+        "Nome_Met": "P. ALEGRE - SANTA RITA/COHAB /VIA FR",
+        "Cod_Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1035",
+        "Cod_Met": "L121C",
+        "Nome_Met": "P. ALEGRE - SANTA RITA/VIA CB (SD EXECUTIVO)",
+        "Cod_Raiz": "L121",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1037",
+        "Cod_Met": "L121E",
+        "Nome_Met": "P. ALEGRE - SANTA RITA/VILA IPÊ /VIA FR",
+        "Cod_Raiz": "L121",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1004",
+        "Cod_Met": "L131",
+        "Nome_Met": "P. ALEGRE - COLINA/VIA FR",
+        "Cod_Raiz": "L131",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1058",
+        "Cod_Met": "L131B",
+        "Nome_Met": "P. ALEGRE - COLINA/VIA CB (SD EXECUTIVO)",
+        "Cod_Raiz": "L131",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1032",
+        "Cod_Met": "L131D",
+        "Nome_Met": "P. ALEGRE - FATIMA/VIA CB (SD EXECUTIVO)",
+        "Cod_Raiz": "L131",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1061",
+        "Cod_Met": "L131E",
+        "Nome_Met": "TRONCAL P.ALEGRE - FÁTIMA VIA FR/BR-116",
+        "Cod_Raiz": "L131",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1013",
+        "Cod_Met": "L151A",
+        "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB (SD/EXECUTIVO)",
+        "Cod_Raiz": "L151",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1014",
+        "Cod_Met": "L151B",
+        "Nome_Met": "TRONCAL P. ALEGRE - FLORIDA/VIA ENGENHO/FR",
+        "Cod_Raiz": "L151",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1015",
+        "Cod_Met": "L151C",
+        "Nome_Met": "P. ALEGRE - FLORIDA /VIA CB/CL (SD/EXECUTIVO)",
+        "Cod_Raiz": "L151",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1016",
+        "Cod_Met": "L151D",
+        "Nome_Met": "TRONCAL P. ALEGRE - FLORIDA/VIA FR",
+        "Cod_Raiz": "L151",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1017",
+        "Cod_Met": "L151E",
+        "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB/PRB (SD EXECUTIVO)",
+        "Cod_Raiz": "L151",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1051",
+        "Cod_Met": "L151F",
+        "Nome_Met": "P. ALEGRE - FLORIDA/VIA GE/PB (SD EXECUTIVO)",
+        "Cod_Raiz": "L151",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1012",
+        "Cod_Met": "L151G",
+        "Nome_Met": "P. ALEGRE - FLORIDA/VIA CB/ML (SD EXECUTIVO)",
+        "Cod_Raiz": "L151",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1018",
+        "Cod_Met": "L161",
+        "Nome_Met": "P. ALEGRE - SÃO JORGE/VILA NOVA",
+        "Cod_Raiz": "L161",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1019",
+        "Cod_Met": "L161A",
+        "Nome_Met": "P. ALEGRE - PASSO FUNDO/SÃO JORGE",
+        "Cod_Raiz": "L161",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1006",
+        "Cod_Met": "L500",
+        "Nome_Met": "P. ALEGRE - SANS SOUCI",
+        "Cod_Raiz": "L500",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1060",
+        "Cod_Met": "L500C",
+        "Nome_Met": "P. ALEGRE - SANS SOUCI/VIA CB (SD EXECUTIVO)",
+        "Cod_Raiz": "L500",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1054",
+        "Cod_Met": "L501",
+        "Nome_Met": "TRONCAL P. ALEGRE - ELDORADO DO SUL/VIA FR",
+        "Cod_Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1042",
+        "Cod_Met": "L501B",
+        "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/VIA CB (SD/EXECUTIVO)",
+        "Cod_Raiz": "L501",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1044",
+        "Cod_Met": "L501D",
+        "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/MEDIANEIRA",
+        "Cod_Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1045",
+        "Cod_Met": "L501E",
+        "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/CIDADE VERDE",
+        "Cod_Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1003",
+        "Cod_Met": "L501F",
+        "Nome_Met": "P. ALEGRE - ELDORADO DO SUL/CENTRO NOVO",
+        "Cod_Raiz": "L501",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1062",
+        "Cod_Met": "L501G",
+        "Nome_Met": "P. ALEGRE - ELDORADO DO SUL /VIA ME (SD EXECUTIVO)",
+        "Cod_Raiz": "L501",
+        "Modal": "SD"
+    },
+    {
+        "Cod_Bil": "1048",
+        "Cod_Met": "M105",
+        "Nome_Met": "TRANSVERSAL METROPOLITANA 5 VIA AEROPORTO",
+        "Cod_Raiz": "M105",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1008",
+        "Cod_Met": "R860",
+        "Nome_Met": "GUAIBA/FLORIDA - ELDORADO DO SUL/VIA SS",
+        "Cod_Raiz": "R860",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1050",
+        "Cod_Met": "R860B",
+        "Nome_Met": "GUAIBA/FLORIDA - ELDORADO DO SUL/VIA BR116",
+        "Cod_Raiz": "R860",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1009",
+        "Cod_Met": "R862",
+        "Nome_Met": "GUAIBA - BOM RETIRO /VIA LG",
+        "Cod_Raiz": "R862",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1010",
+        "Cod_Met": "R863",
+        "Nome_Met": "GUAIBA - BOM RETIRO /VIA FSM",
+        "Cod_Raiz": "R863",
+        "Modal": "CM"
+    },
+    {
+        "Cod_Bil": "1039",
+        "Cod_Met": "RT001",
+        "Nome_Met": "PORTO ALEGRE - ULBRA/VIA CB/FR",
+        "Cod_Raiz": "RT001",
+        "Modal": "SD"
+    }
 ]
