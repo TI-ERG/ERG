@@ -17,6 +17,7 @@
     },
     "matrizes": {
         "frota": "frota.json",
-        "linhas": "linhas.json"
+        "linhas": "linhas.json",
+        "linhas_raiz": "linhas_raiz.json"
     }
 }

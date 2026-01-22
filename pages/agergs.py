@@ -84,6 +84,7 @@ def gerar_resumo():
     st.write("📄 Processando os arquivos...")
     df_frota = files_utils.ler_frota(competencia)
     df_linhas = files_utils.ler_linhas()
+    df_raiz = files_utils.ler_linhas_raiz()
     df_previstas = files_utils.ler_viagens_previstas(up_previstas)
     df = ler_detalhado()
 
@@ -121,17 +122,22 @@ def gerar_resumo():
     df_aggregated = df_aggregated.merge(df_previstas[["Codigo", "TPrevMet"]], on="Codigo", how="left")
     df_aggregated["TPrevMet"] = df_aggregated["TPrevMet"].fillna(0).astype(int)
 
-    # Adiciona coluna linha raiz
+    # Adiciona coluna nome_raiz
+    df_linhas = df_linhas.merge(
+        df_raiz[['Cod_Raiz', 'Modal', 'Nome_Raiz']],
+        on=['Cod_Raiz', 'Modal'],
+        how="left"
+    )
     df_linhas = df_linhas.rename(columns={'Cod_Met': 'Codigo'})
+    # Adiciona coluna cod_raiz
     df_merged_raiz = pd.merge(
         df_aggregated,
-        df_linhas[['Codigo', 'Raiz']],
+        df_linhas[['Codigo', 'Cod_Raiz', "Modal"]],
         on='Codigo',
         how='left'
-    )
-
+    ).drop(columns=["Codigo"])
     # Agrupa por raíz e soma
-    df_agregado_sum_cols = df_merged_raiz.groupby('Raiz').agg({
+    df_agregado_sum_cols = df_merged_raiz.groupby(["Cod_Raiz", "Modal"]).agg({
         'Total_THor': 'sum',
         'Total_Real': 'sum',
         'TPrevMet': 'sum',
@@ -141,16 +147,17 @@ def gerar_resumo():
         "maior100": 'sum',
         'Idade': 'sum'
     }).reset_index()
-
+    # Retira duplicados
+    df_linhas = df_linhas.drop_duplicates(subset=['Cod_Raiz', 'Modal'])
+    # Adiciona Nome_Raiz
     df_base = df_agregado_sum_cols.merge(
-        df_linhas[["Codigo", "Linha", "Modal"]],
-        left_on="Raiz",
-        right_on="Codigo",
-        how="left"
-    ).drop(columns=["Codigo"])
+        df_linhas[['Cod_Raiz', 'Modal', 'Nome_Raiz']],
+        on=['Cod_Raiz', 'Modal'],
+        how='left'
+    )
 
-    df_base = df_base.rename(columns={"Raiz": "Codigo"})
-
+    df_base = df_base.rename(columns={"Cod_Raiz": "Codigo", "Nome_Raiz": "Linha"})
+    
     # Calculate 'Idade_media', handling division by zero
     df_base['Idade Media'] = df_base.apply(
         lambda row: row['Idade'] / row['Total_Real'] if row['Total_Real'] != 0 else 0,
@@ -173,7 +180,6 @@ def gerar_resumo():
                                       "Indice Quebra" : "309", "Indice Desv. Itinerário" : "310", "Indice Acidentes" : "314"})
 
     # Criando novas
-    #df_base["303"] = df_base.get("303", 0) # Viagens previstas
     df_base["307"] = df_base.get("307", 0) # Viagens interrompidas
     df_base["Quebras"] = df_base.get("Quebras", 0)
     df_base["Acidentes"] = df_base.get("Acidentes", 0)
@@ -189,6 +195,9 @@ def gerar_resumo():
     df_base = df_base.drop(columns=['maior100'])
 
     df_base = atualizar_dados(df_base)
+
+    # Atualiza os valores de lotações [311, 312, 313] das alimentadoras para 999
+    df_base.loc[df_base['Modal'] == 'IO', ['311', '312', '313']] = 999
 
     # Ordenando
     ordem_final = [

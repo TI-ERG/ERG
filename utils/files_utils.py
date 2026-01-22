@@ -23,6 +23,14 @@ def ler_linhas():
     df = pd.DataFrame(linhas)
     return df
 
+# Ler o arquivo matriz das linhas raiz
+def ler_linhas_raiz():
+    config = json_utils.ler_json('config.json')
+    raiz = json_utils.ler_json(config["matrizes"]["linhas_raiz"])
+
+    df = pd.DataFrame(raiz)
+    return df
+
 # Ler o arquivo do relatório detalhado por linha
 def ler_detalhado_linha(file):
     # Ler o arquivo do Transnet
