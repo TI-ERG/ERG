@@ -12,22 +12,46 @@ from utils import json_utils
 from utils import files_utils
 from utils import date_utils
 
-def criar_abas_por_semana(wb, data):
+# region FUNÇÕES
+def criar_abas_com_dias(wb):
     if "Modelo" not in wb.sheetnames:
         status.update(label="Erro durante o processamento!", state="error", expanded=True)
-        st.warning(f"⚠️ A aba Modelo não existe na planilha.")
+        st.warning("⚠️ A aba Modelo não existe na planilha.")
         st.stop()
 
+    # --- Configurações iniciais ---
+    data_ref = df_det2.loc[0, "Dia"]
     aba_modelo = wb["Modelo"]
-    # Insiro informações padrões 
+
     aba_modelo["A2"] = "Nome da Empresa: Expresso Rio Guaíba"
     aba_modelo["D2"] = "Códgo da Empresa: GU99"
-    aba_modelo["G2"] = f"Mês de referência: {pd.to_datetime(data).month_name(locale="pt_BR")}/{data.year}"
+    aba_modelo["G2"] = f"Mês de referência: {pd.to_datetime(data_ref).month_name(locale='pt_BR')}/{data_ref.year}"
 
-    total_semanas = date_utils.semanas_no_mes(data)
+    total_semanas = date_utils.semanas_no_mes(data_ref)
 
-    for i in range(1, total_semanas + 1):
-        nome_aba = date_utils.semana_extenso_numero(i)
+    # --- Dados auxiliares ---
+    posicoes_dias = {
+        0: ("E5", "E9"),    # segunda
+        1: ("K5", "K9"),    # terça
+        2: ("Q5", "Q9"),    # quarta
+        3: ("W5", "W9"),    # quinta
+        4: ("AC5", "AC9"),  # sexta
+        5: ("AI5", "AI9"),  # sábado
+        6: ("AO5", "AO9"),  # domingo
+    }
+
+    fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+    df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia")
+
+    feriados_dict = {
+        row["data"]: row["escala"]
+        for _, row in df_feriado_editado.iterrows()
+    }
+
+    # --- Criação das abas + preenchimento ---
+    for semana_num in range(1, total_semanas + 1):
+        nome_aba = date_utils.semana_extenso_numero(semana_num)
 
         if nome_aba in wb.sheetnames:
             del wb[nome_aba]
@@ -35,9 +59,31 @@ def criar_abas_por_semana(wb, data):
         nova_aba = wb.copy_worksheet(aba_modelo)
         nova_aba.title = nome_aba
 
+        # Preenche apenas os dias desta semana
+        for _, row in df_dias.iterrows():
+            dia = row["Dia"]
+            if date_utils.semana_do_mes(dia) != semana_num:
+                continue  # pula dias de outras semanas
+
+            dia_semana = dia.weekday()
+            cel1, cel2 = posicoes_dias[dia_semana]
+
+            texto = f"{date_utils.dia_da_semana(dia)} Dia: {dia.day}"
+
+            # Se for feriado, estiliza
+            if dia in feriados_dict:
+                texto += f" (Escala de {feriados_dict[dia]})"
+                nova_aba[cel1].fill = fill_feriado
+                nova_aba[cel2].fill = fill_feriado
+
+            nova_aba[cel1] = texto
+            nova_aba[cel2] = texto
+
+    # Remove o modelo após gerar tudo
     del wb["Modelo"]
 
     return wb
+# endregion
 
 # Configuração da página
 st.set_page_config(layout="wide")
@@ -112,6 +158,7 @@ if botao:
             config = json_utils.ler_json("config.json") # Arquivo de configuração
             df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"])) # Matriz de linhas
             df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
+            df_prev_met = files_utils.ler_viagens_previstas(up_conferencia) # Planilha de viagens previstas Metroplan
             # Arquivo desempenho diário das linhas
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
@@ -129,26 +176,31 @@ if botao:
             df_det2 = df_det1[~(df_det1["Passag"].isna() & (df_det1["Observacao"] != "Furo de Viagem"))]
             # Preenche o horário das previstas com as realizadas nas viagens extras (vou usar esta coluna para os horários)
             df_det2.loc[:, "THor"] = df_det2["THor"].fillna(df_det2["Real"])
-            
+            # Converte e ordena
             df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
             df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
-            
+
             st.write("🧠 Processando - Desempenho Diário das Linhas...")
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
             st.write("🧠 Processando os dados para conferência...")
             df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
             df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
-            # Atualizo com o feriado
-            # 1. Faz o merge com base na data
-            df_conf_merged = df_conf1.merge(df_feriado_editado, left_on='Dia', right_on='data', how='left')
-            # 2. Atualiza 'Dia Semana' com base na escala
-            df_conf_merged.loc[df_conf_merged['escala'] == 'Sábado', 'Dia Semana'] = 'S'
-            df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
-            # 3. Remove colunas extras
-            df_conf1 = df_conf_merged
-            df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"])
-            # 4. Agrupa
+
+            # Atualizo com o feriado, se houver
+            df_feriado_editado = df_feriado_editado.dropna(how="all") # Limpa se não houver dados
+            if not df_feriado_editado.empty:
+                # 1. Faz o merge com base na data
+                df_conf_merged = df_conf1.merge(df_feriado_editado, left_on='Dia', right_on='data', how='left')
+                # 2. Atualiza 'Dia Semana' com base na escala
+                df_conf_merged.loc[df_conf_merged['escala'] == 'Sábado', 'Dia Semana'] = 'S'
+                df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
+                # 3. Remove colunas extras
+                df_conf1 = df_conf_merged
+
+            df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"], errors="ignore") # Dropa colunas incluindo as usadas no feriado
+            
+            # Agrupa
             df_conf2 = (
                 df_conf1
                     .assign(
@@ -169,6 +221,14 @@ if botao:
                     .reset_index()
             )
 
+            # Merge com previstas Metroplan
+            df_conf2 = df_conf2.merge(
+                df_prev_met,
+                left_on="Codigo",
+                right_on="Codigo",
+                how="left"
+            )
+
             # Lendo Planilha modelo ModeloPDO.xlsx
             status.update(label="Preenchendo a planilha modelo...", state="running", expanded=False)
             wb = load_workbook(config['pdo']['modelo_pdo'])
@@ -180,21 +240,27 @@ if botao:
             for row in df_conf2.itertuples(index=False): 
                 ws_conf[f"A{linha_excel}"] = row.Codigo 
                 ws_conf[f"B{linha_excel}"] = row.ERG_U1
+                ws_conf[f"C{linha_excel}"] = row.MET_U1
                 ws_conf[f"E{linha_excel}"] = row.EXT_U1
                 ws_conf[f"F{linha_excel}"] = row.FURO_U1
                 ws_conf[f"H{linha_excel}"] = row.ERG_U2
+                ws_conf[f"I{linha_excel}"] = row.MET_U2
                 ws_conf[f"K{linha_excel}"] = row.EXT_U2
                 ws_conf[f"L{linha_excel}"] = row.FURO_U2
                 ws_conf[f"N{linha_excel}"] = row.ERG_S1
+                ws_conf[f"O{linha_excel}"] = row.MET_S1
                 ws_conf[f"Q{linha_excel}"] = row.EXT_S1
                 ws_conf[f"R{linha_excel}"] = row.FURO_S1
                 ws_conf[f"T{linha_excel}"] = row.ERG_S2
+                ws_conf[f"U{linha_excel}"] = row.MET_S2
                 ws_conf[f"W{linha_excel}"] = row.EXT_S2
                 ws_conf[f"X{linha_excel}"] = row.FURO_S2
                 ws_conf[f"Z{linha_excel}"] = row.ERG_D1
+                ws_conf[f"AA{linha_excel}"] = row.MET_D1
                 ws_conf[f"AC{linha_excel}"] = row.EXT_D1
                 ws_conf[f"AD{linha_excel}"] = row.FURO_D1
                 ws_conf[f"AF{linha_excel}"] = row.ERG_D2
+                ws_conf[f"AG{linha_excel}"] = row.MET_D2
                 ws_conf[f"AI{linha_excel}"] = row.EXT_D2
                 ws_conf[f"AJ{linha_excel}"] = row.FURO_D2
                 linha_excel += 1
@@ -202,45 +268,9 @@ if botao:
                         
             # 2️⃣ SEMANAS
             st.write("✏ Editando a planilha - Abas semanais...")
-            # Crio as abas das semanas
-            wb = criar_abas_por_semana(wb, df_det2.loc[0, "Dia"])
-            # Informo os dias e estilizo os dias de feriados
-            posicoes_dias = {
-                0: ("E5", "E9"),    # segunda
-                1: ("K5", "K9"),    # terça
-                2: ("Q5", "Q9"),    # quarta
-                3: ("W5", "W9"),    # quinta
-                4: ("AC5", "AC9"),  # sexta
-                5: ("AI5", "AI9"),  # sábado
-                6: ("AO5", "AO9"),  # domingo
-            }
+            # Crio as abas das semanas e preencho os dias/feriados
+            wb = criar_abas_com_dias(wb)
             
-            fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-
-            df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia") # Dias únicos no mês
-            feriados_dict = {
-                row["data"]: row["escala"]
-                for _, row in df_feriado_editado.iterrows()
-            }
-            abas_semanas = wb.sheetnames[2:]  # ignora as duas primeiras abas
-
-            for _, row in df_dias.iterrows():
-                data = row["Dia"] 
-                dia_semana = data.weekday() # 0=segunda ... 6=domingo
-                semana = date_utils.semana_do_mes(data) # 1 a 6
-                texto = f"{date_utils.dia_da_semana(data)} Dia: {data.day}"
-                cel1, cel2 = posicoes_dias[dia_semana]
-
-                ws_temp = wb[abas_semanas[semana - 1]]
-                # Estiliza feriado
-                if data in feriados_dict:
-                    texto = f"{texto} (Escala de {feriados_dict[data]})"
-                    ws_temp[cel1].fill = fill_feriado
-                    ws_temp[cel2].fill = fill_feriado
-
-                ws_temp[cel1] = texto
-                ws_temp[cel2] = texto
-
 
             #‼️‼️‼️‼️‼️‼️‼️‼️
 

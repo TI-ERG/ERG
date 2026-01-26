@@ -101,7 +101,7 @@ def ler_detalhado_linha(file):
 # Ler a planilha de viagens previstas
 def ler_viagens_previstas(file):
     df = pd.read_excel(file, skiprows=6)
-    df.rename(columns={'Unnamed: 0': 'Codigo', 'TOTAL': 'U1', 'TOTAL.1': 'S1', 'TOTAL.2': 'D1', 'TOTAL.3': 'U2', 'TOTAL.4': 'S2', 'TOTAL.5': 'D2'}, inplace=True)
+    df.rename(columns={'Unnamed: 0': 'Codigo', 'TOTAL': 'MET_U1', 'TOTAL.1': 'MET_S1', 'TOTAL.2': 'MET_D1', 'TOTAL.3': 'MET_U2', 'TOTAL.4': 'MET_S2', 'TOTAL.5': 'MET_D2'}, inplace=True)
     df = df.dropna(subset=['Codigo', 'DIAS'])
     df = df.drop(columns=['ÚTEIS', 'DIAS', 'SAB', 'DIAS.1', 'DOM', 'DIAS.2', 'Unnamed: 10', 'ÚTEIS.1', 'DIAS.3', 'SAB.1', 'DIAS.4', 'DOM.1', 'DIAS.5', 'Unnamed: 20'])
     df = df[~df["Codigo"].str.contains("TOTAL", case=False, na=False)]

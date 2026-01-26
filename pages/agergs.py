@@ -87,7 +87,7 @@ def gerar_resumo():
     df_raiz = files_utils.ler_linhas_raiz()
     df_previstas = files_utils.ler_viagens_previstas(up_previstas)
     df = ler_detalhado()
-
+    
     st.write("🧠 Processando as informações...")
     # Merge com a frota
     df = pd.merge(
@@ -97,6 +97,7 @@ def gerar_resumo():
         right_on='Prefixo',
         how='left'
     )
+
     # Organiza colunas
     df = df.drop(columns=['Prefixo'])
     cols = df.columns.tolist()
@@ -104,6 +105,7 @@ def gerar_resumo():
     cols.remove('Idade')
     cols.insert(veiculo_idx + 1, 'Idade')
     df = df[cols]
+
     # Agrega totais
     df_aggregated = df.groupby('Codigo').agg(
         Linha=('Linha', 'first'),
@@ -115,8 +117,9 @@ def gerar_resumo():
         maior100=('%Lotacao', lambda x: (x > 100.00).sum()),
         Idade=('Idade', 'sum')
     ).reset_index()
+
     # Totaliza previstas
-    cols_somar = ["U1", "S1", "D1", "U2", "S2", "D2"]
+    cols_somar = ["MET_U1", "MET_S1", "MET_D1", "MET_U2", "MET_S2", "MET_D2"]
     df_previstas["TPrevMet"] = df_previstas[cols_somar].sum(axis=1)
     df_previstas = df_previstas[["Codigo", "TPrevMet"]]
     df_aggregated = df_aggregated.merge(df_previstas[["Codigo", "TPrevMet"]], on="Codigo", how="left")
@@ -129,6 +132,7 @@ def gerar_resumo():
         how="left"
     )
     df_linhas = df_linhas.rename(columns={'Cod_Met': 'Codigo'})
+
     # Adiciona coluna cod_raiz
     df_merged_raiz = pd.merge(
         df_aggregated,
@@ -136,6 +140,7 @@ def gerar_resumo():
         on='Codigo',
         how='left'
     ).drop(columns=["Codigo"])
+
     # Agrupa por raíz e soma
     df_agregado_sum_cols = df_merged_raiz.groupby(["Cod_Raiz", "Modal"]).agg({
         'Total_THor': 'sum',
@@ -147,8 +152,10 @@ def gerar_resumo():
         "maior100": 'sum',
         'Idade': 'sum'
     }).reset_index()
+
     # Retira duplicados
     df_linhas = df_linhas.drop_duplicates(subset=['Cod_Raiz', 'Modal'])
+
     # Adiciona Nome_Raiz
     df_base = df_agregado_sum_cols.merge(
         df_linhas[['Cod_Raiz', 'Modal', 'Nome_Raiz']],
@@ -187,6 +194,7 @@ def gerar_resumo():
     df_base["311"] = ((df_base["ate80"] / df_base["302"]) * 100).round(0)
     df_base["312"] = ((df_base["de80a100"] / df_base["302"]) * 100).round(0)
     df_base["313"] = ((df_base["maior100"] / df_base["302"]) * 100).round(0)
+    
     # Excluindo
     df_base = df_base.drop(columns=['Idade'])
     df_base = df_base.drop(columns=['Total_THor'])
