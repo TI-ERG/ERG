@@ -303,7 +303,6 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
         # se não tiver Sent 2, legenda vem logo após totalizador 1
         linha_legenda = linha_totalizador_1 + 4
         colar_range(nova_aba, legenda, linha_legenda, 1)
-    
 
 def criar_abas_com_dias(wb):
     if "Modelo" not in wb.sheetnames:
@@ -340,7 +339,7 @@ def criar_abas_com_dias(wb):
     df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia")
 
     feriados_dict = {
-        row["data"]: row["escala"]
+        row["data"].strftime("%d/%m/%Y"): row["escala"]
         for _, row in df_feriado_editado.iterrows()
     }
 
@@ -356,7 +355,7 @@ def criar_abas_com_dias(wb):
         nova_aba.title = nome_aba
 
         dias_semana = df_dias[df_dias["Dia"].apply(date_utils.semana_do_mes) == semana_num]
-
+        
         for _, row in dias_semana.iterrows():
             dia = row["Dia"]
             dia_semana = dia.weekday()
@@ -364,8 +363,9 @@ def criar_abas_com_dias(wb):
 
             texto = f"{date_utils.dia_da_semana(dia)} Dia: {dia.day}"
 
-            if dia in feriados_dict:
-                texto += f" (Escala de {feriados_dict[dia]})"
+            dia_key = dia.strftime("%d/%m/%Y")
+            if dia_key in feriados_dict:
+                texto += f" (Escala de {feriados_dict[dia_key]})"
                 nova_aba[cel].fill = fill_feriado
 
             nova_aba[cel] = texto
@@ -375,7 +375,6 @@ def criar_abas_com_dias(wb):
 
     del wb["Modelo"]
     return wb
-
 # endregion
 
 # Configuração da página
