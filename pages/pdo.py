@@ -1,46 +1,341 @@
 import traceback
 from io import BytesIO
 from datetime import date
-from calendar import monthrange
 import streamlit as st
 import pandas as pd
+from copy import copy
 from openpyxl import load_workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import column_index_from_string
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill
+from openpyxl.cell.cell import MergedCell
 from utils import json_utils
 from utils import files_utils
 from utils import date_utils
 
 # region FUNÇÕES
+def copiar_range(ws, min_row, max_row, min_col, max_col, values=True):
+    dados = []
+    merges = []
+
+    # Copiar valores e estilos
+    for row in ws.iter_rows(min_row=min_row, max_row=max_row,
+                            min_col=min_col, max_col=max_col):
+        for cell in row:
+
+            # Ignorar células mescladas falsas
+            if isinstance(cell, MergedCell):
+                continue
+
+            dados.append({
+                "row_offset": cell.row - min_row,
+                "col_offset": cell.col_idx - min_col,
+                "value": cell.value if values else None,
+                "font": copy(cell.font),
+                "border": copy(cell.border),
+                "fill": copy(cell.fill),
+                "number_format": copy(cell.number_format),
+                "protection": copy(cell.protection),
+                "alignment": copy(cell.alignment)
+            })
+
+    # Copiar mesclagens internas ao bloco
+    for merged in ws.merged_cells.ranges:
+        if (merged.min_row >= min_row and merged.max_row <= max_row and
+            merged.min_col >= min_col and merged.max_col <= max_col):
+
+            merges.append({
+                "min_row": merged.min_row - min_row,
+                "max_row": merged.max_row - min_row,
+                "min_col": merged.min_col - min_col,
+                "max_col": merged.max_col - min_col
+            })
+
+    return {
+        "dados": dados,
+        "merges": merges,
+        "altura": max_row - min_row + 1,
+        "largura": max_col - min_col + 1
+    }
+
+def colar_range(ws, pacote, destino_row, destino_col, values=True):
+    altura = pacote["altura"]
+    largura = pacote["largura"]
+
+    # 1) Desmesclar qualquer merge que toque a área de destino
+    min_row_dest = destino_row
+    max_row_dest = destino_row + altura - 1
+    min_col_dest = destino_col
+    max_col_dest = destino_col + largura - 1
+
+    for merge in list(ws.merged_cells.ranges):
+        if (
+            merge.min_row <= max_row_dest and
+            merge.max_row >= min_row_dest and
+            merge.min_col <= max_col_dest and
+            merge.max_col >= min_col_dest
+        ):
+            ws.unmerge_cells(str(merge))
+
+    # 2) Colar valores e estilos
+    for item in pacote["dados"]:
+        new_row = destino_row + item["row_offset"]
+        new_col = destino_col + item["col_offset"]
+
+        cell = ws.cell(row=new_row, column=new_col)
+
+        # Se por algum motivo ainda cair em MergedCell, pula
+        if isinstance(cell, MergedCell):
+            continue
+
+        if values: cell.value = item["value"]
+        cell.font = item["font"]
+        cell.border = item["border"]
+        cell.fill = item["fill"]
+        cell.number_format = item["number_format"]
+        cell.protection = item["protection"]
+        cell.alignment = item["alignment"]
+
+    # 3) Recriar mesclagens relativas ao pacote
+    for m in pacote["merges"]:
+        min_row = destino_row + m["min_row"]
+        max_row = destino_row + m["max_row"]
+        min_col = destino_col + m["min_col"]
+        max_col = destino_col + m["max_col"]
+
+        range_str = (
+            f"{get_column_letter(min_col)}{min_row}:"
+            f"{get_column_letter(max_col)}{max_row}"
+        )
+
+        ws.merge_cells(range_str)
+
+def preencher_totalizador(nova_aba, linha_inicio, linha_fim, linha_totalizador, colunas_dias):
+    def to_num(v):
+        if v is None or v == "":
+            return 0
+        if isinstance(v, (int, float)):
+            return v
+        # tenta converter string numérica
+        try:
+            return float(str(v).replace(",", "."))
+        except Exception:
+            return 0
+
+    for dia_semana, col_base in colunas_dias.items():
+
+        # Horários oficiais (contagem)
+        total_horarios = sum(
+            1 for r in range(linha_inicio, linha_fim + 1)
+            if nova_aba.cell(row=r, column=col_base).value not in (None, "")
+        )
+
+        # Demanda oficial
+        total_demanda = sum(
+            to_num(nova_aba.cell(row=r, column=col_base + 1).value)
+            for r in range(linha_inicio, linha_fim + 1)
+        )
+
+        # Lugares oficiais
+        total_lugares = sum(
+            to_num(nova_aba.cell(row=r, column=col_base + 2).value)
+            for r in range(linha_inicio, linha_fim + 1)
+        )
+
+        # Horários eventuais (contagem)
+        total_horarios_ev = sum(
+            1 for r in range(linha_inicio, linha_fim + 1)
+            if nova_aba.cell(row=r, column=col_base + 3).value not in (None, "")
+        )
+
+        # Demanda eventual
+        total_demanda_ev = sum(
+            to_num(nova_aba.cell(row=r, column=col_base + 4).value)
+            for r in range(linha_inicio, linha_fim + 1)
+        )
+
+        # Lugares eventuais
+        total_lugares_ev = sum(
+            to_num(nova_aba.cell(row=r, column=col_base + 5).value)
+            for r in range(linha_inicio, linha_fim + 1)
+        )
+
+        nova_aba.cell(row=linha_totalizador, column=col_base).value = total_horarios
+        nova_aba.cell(row=linha_totalizador, column=col_base + 1).value = total_demanda
+        nova_aba.cell(row=linha_totalizador, column=col_base + 2).value = total_lugares
+        nova_aba.cell(row=linha_totalizador, column=col_base + 3).value = total_horarios_ev
+        nova_aba.cell(row=linha_totalizador, column=col_base + 4).value = total_demanda_ev
+        nova_aba.cell(row=linha_totalizador, column=col_base + 5).value = total_lugares_ev
+
+def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_modal):
+    # === 1) Copiar blocos fixos ===
+    cabecalho = copiar_range(nova_aba, 5, 6, 1, 46, True)       # A5:AT6
+    linha_dados = copiar_range(nova_aba, 7, 7, 1, 46, False)     # A7:AT7
+    totalizador_tpl = copiar_range(nova_aba, 8, 8, 1, 46, False) # A8:AT8
+    legenda = copiar_range(nova_aba, 10, 18, 1, 9, True)        # A10:I18
+
+    # === 2) Limpar área de dados (linhas 8 até 19) ===
+    for merge in list(nova_aba.merged_cells.ranges): # Remover mesclagens que tocam as linhas 8 a 19
+        if merge.min_row <= 19 and merge.max_row >= 8:
+            nova_aba.unmerge_cells(str(merge))
+
+    nova_aba.delete_rows(8, 12)  # remove linhas 8 a 19 (12 linhas)
+
+    # === 3) Criar df_semana ===
+    df_semana = df_det2[
+        (df_det2["Dia"].apply(date_utils.semana_do_mes) == semana_num) &
+        (df_det2["Observacao"] != "Furo de Viagem")
+    ].copy()
+
+    df_semana["Dia"] = pd.to_datetime(df_semana["Dia"], dayfirst=True, errors="coerce")
+
+    df_sent1 = df_semana[df_semana["Sent"] == 1].sort_values(["Codigo", "Dia", "THor"])
+    df_sent2 = df_semana[df_semana["Sent"] == 2].sort_values(["Codigo", "Dia", "THor"])
+
+    # === 4) BLOCO SENT 1 ===
+    linha_global_1 = 7 # primeira linha de dados de Sent 1
+
+    for (codigo, sent), df_bloco in df_sent1.groupby(["Codigo", "Sent"], sort=False):
+        df_bloco = df_bloco.copy()
+        df_bloco["ordem"] = df_bloco.groupby("Dia").cumcount()
+        max_ordem = int(df_bloco["ordem"].max()) if not df_bloco.empty else -1
+
+        for _, row in df_bloco.iterrows():
+            dia_semana = row["Dia"].weekday()
+            col_base = colunas_dias[dia_semana]
+            ordem = int(row["ordem"])
+
+            linha_atual = linha_global_1 + ordem
+            colar_range(nova_aba, linha_dados, linha_atual, 1, False) # Formatação/estilo
+
+            # Preenche dados fixos (só se ainda não tiver nada na linha)
+            if not nova_aba.cell(row=linha_atual, column=1).value:
+                nova_aba.cell(row=linha_atual, column=1).value = row["Codigo"]
+                nova_aba.cell(row=linha_atual, column=2).value = row["Linha"]
+                nova_aba.cell(row=linha_atual, column=3).value = mapa_modal.get(row["Modal"], row["Modal"])
+                nova_aba.cell(row=linha_atual, column=4).value = row["Sent"]
+
+            # Horários
+            if row["Observacao"] == "OK":
+                nova_aba.cell(row=linha_atual, column=col_base).value = row["THor"]
+                nova_aba.cell(row=linha_atual, column=col_base + 1).value = row["Passag"]
+                nova_aba.cell(row=linha_atual, column=col_base + 2).value = row["Oferta"]
+            else:
+                nova_aba.cell(row=linha_atual, column=col_base + 3).value = row["THor"]
+                nova_aba.cell(row=linha_atual, column=col_base + 4).value = row["Passag"]
+                nova_aba.cell(row=linha_atual, column=col_base + 5).value = row["Oferta"]
+
+        # depois de preencher todas as viagens desse código, avança o bloco de linhas para o próximo código
+        linha_global_1 = linha_global_1 + max_ordem + 1
+
+    ultima_linha_sent1 = linha_global_1 - 1
+
+    # === 5) Inserir totalizador de Sent 1 ===
+    linha_totalizador_1 = ultima_linha_sent1 + 1
+    colar_range(nova_aba, totalizador_tpl, linha_totalizador_1, 1)
+
+    preencher_totalizador(
+        nova_aba,
+        linha_inicio=7,
+        linha_fim=ultima_linha_sent1,
+        linha_totalizador=linha_totalizador_1,
+        colunas_dias=colunas_dias
+    )
+
+    linha_atual = linha_totalizador_1 + 1
+
+    # === 6) BLOCO SENT 2 ===
+    if not df_sent2.empty:
+        # === 7) Inserir cabeçalho para Sent 2 ===
+        linha_cabecalho_2 = linha_totalizador_1 + 1
+        colar_range(nova_aba, cabecalho, linha_cabecalho_2, 1)
+
+        linha_global_2 = linha_cabecalho_2 + 2   # primeira linha de dados de Sent 2
+        inicio_sent2 = linha_global_2
+
+        for (codigo, sent), df_bloco in df_sent2.groupby(["Codigo", "Sent"], sort=False):
+            df_bloco = df_bloco.copy()
+            df_bloco["ordem"] = df_bloco.groupby("Dia").cumcount()
+            max_ordem = int(df_bloco["ordem"].max()) if not df_bloco.empty else -1
+
+            for _, row in df_bloco.iterrows():
+                dia_semana = row["Dia"].weekday()
+                col_base = colunas_dias[dia_semana]
+                ordem = int(row["ordem"])
+
+                linha_atual = linha_global_2 + ordem
+                colar_range(nova_aba, linha_dados, linha_atual, 1, False) # Formatação/estilo
+                
+                if not nova_aba.cell(row=linha_atual, column=1).value:
+                    nova_aba.cell(row=linha_atual, column=1).value = row["Codigo"]
+                    nova_aba.cell(row=linha_atual, column=2).value = row["Linha"]
+                    nova_aba.cell(row=linha_atual, column=3).value = mapa_modal.get(row["Modal"], row["Modal"])
+                    nova_aba.cell(row=linha_atual, column=4).value = row["Sent"]
+
+                if row["Observacao"] == "OK":
+                    nova_aba.cell(row=linha_atual, column=col_base).value = row["THor"]
+                    nova_aba.cell(row=linha_atual, column=col_base + 1).value = row["Passag"]
+                    nova_aba.cell(row=linha_atual, column=col_base + 2).value = row["Oferta"]
+                else:
+                    nova_aba.cell(row=linha_atual, column=col_base + 3).value = row["THor"]
+                    nova_aba.cell(row=linha_atual, column=col_base + 4).value = row["Passag"]
+                    nova_aba.cell(row=linha_atual, column=col_base + 5).value = row["Oferta"]
+
+            linha_global_2 = linha_global_2 + max_ordem + 1
+
+        linha_fim_sent2 = linha_global_2 - 1
+        linha_totalizador_2 = linha_fim_sent2 + 1
+
+        colar_range(nova_aba, totalizador_tpl, linha_totalizador_2, 1)
+
+        preencher_totalizador(
+            nova_aba,
+            linha_inicio=inicio_sent2,
+            linha_fim=linha_fim_sent2,
+            linha_totalizador=linha_totalizador_2,
+            colunas_dias=colunas_dias
+        )
+
+        # === 8) Inserir legenda ===
+        linha_legenda = linha_totalizador_2 + 4
+        colar_range(nova_aba, legenda, linha_legenda, 1)
+    else:
+        # se não tiver Sent 2, legenda vem logo após totalizador 1
+        linha_legenda = linha_totalizador_1 + 4
+        colar_range(nova_aba, legenda, linha_legenda, 1)
+    
+
 def criar_abas_com_dias(wb):
     if "Modelo" not in wb.sheetnames:
-        status.update(label="Erro durante o processamento!", state="error", expanded=True)
         st.warning("⚠️ A aba Modelo não existe na planilha.")
         st.stop()
 
-    # --- Configurações iniciais ---
+    df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce")
     data_ref = df_det2.loc[0, "Dia"]
-    aba_modelo = wb["Modelo"]
 
+    aba_modelo = wb["Modelo"]
     aba_modelo["A2"] = "Nome da Empresa: Expresso Rio Guaíba"
-    aba_modelo["D2"] = "Códgo da Empresa: GU99"
-    aba_modelo["G2"] = f"Mês de referência: {pd.to_datetime(data_ref).month_name(locale='pt_BR')}/{data_ref.year}"
+    aba_modelo["D2"] = "Código da Empresa: GU99"
+    aba_modelo["G2"] = f"Mês de referência: {data_ref.month_name(locale='pt_BR')}/{data_ref.year}"
 
     total_semanas = date_utils.semanas_no_mes(data_ref)
 
-    # --- Dados auxiliares ---
     posicoes_dias = {
-        0: ("E5", "E9"),    # segunda
-        1: ("K5", "K9"),    # terça
-        2: ("Q5", "Q9"),    # quarta
-        3: ("W5", "W9"),    # quinta
-        4: ("AC5", "AC9"),  # sexta
-        5: ("AI5", "AI9"),  # sábado
-        6: ("AO5", "AO9"),  # domingo
+        0: "E5",   # segunda
+        1: "K5",   # terça
+        2: "Q5",   # quarta
+        3: "W5",   # quinta
+        4: "AC5",  # sexta
+        5: "AI5",  # sábado
+        6: "AO5",  # domingo
     }
 
-    fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    colunas_dias = {
+        d: column_index_from_string(cel.split("5")[0])
+        for d, cel in posicoes_dias.items()
+    }
+
+    mapa_modal = {"IO": "Alimentador", "CM": "Comum", "SD": "Semi-Direto"}
 
     df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia")
 
@@ -49,7 +344,8 @@ def criar_abas_com_dias(wb):
         for _, row in df_feriado_editado.iterrows()
     }
 
-    # --- Criação das abas + preenchimento ---
+    fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid") # Amarelo
+
     for semana_num in range(1, total_semanas + 1):
         nome_aba = date_utils.semana_extenso_numero(semana_num)
 
@@ -59,30 +355,27 @@ def criar_abas_com_dias(wb):
         nova_aba = wb.copy_worksheet(aba_modelo)
         nova_aba.title = nome_aba
 
-        # Preenche apenas os dias desta semana
-        for _, row in df_dias.iterrows():
-            dia = row["Dia"]
-            if date_utils.semana_do_mes(dia) != semana_num:
-                continue  # pula dias de outras semanas
+        dias_semana = df_dias[df_dias["Dia"].apply(date_utils.semana_do_mes) == semana_num]
 
+        for _, row in dias_semana.iterrows():
+            dia = row["Dia"]
             dia_semana = dia.weekday()
-            cel1, cel2 = posicoes_dias[dia_semana]
+            cel = posicoes_dias[dia_semana]
 
             texto = f"{date_utils.dia_da_semana(dia)} Dia: {dia.day}"
 
-            # Se for feriado, estiliza
             if dia in feriados_dict:
                 texto += f" (Escala de {feriados_dict[dia]})"
-                nova_aba[cel1].fill = fill_feriado
-                nova_aba[cel2].fill = fill_feriado
+                nova_aba[cel].fill = fill_feriado
 
-            nova_aba[cel1] = texto
-            nova_aba[cel2] = texto
+            nova_aba[cel] = texto
 
-    # Remove o modelo após gerar tudo
+        # Insere os dados por semana
+        inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_modal)
+
     del wb["Modelo"]
-
     return wb
+
 # endregion
 
 # Configuração da página
@@ -271,10 +564,6 @@ if botao:
             # Crio as abas das semanas e preencho os dias/feriados
             wb = criar_abas_com_dias(wb)
             
-
-            #‼️‼️‼️‼️‼️‼️‼️‼️
-
-
             # 3️⃣ TOTAL GERAL
             st.write("✏ Editando a planilha - Aba de totais...")
 

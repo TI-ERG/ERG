@@ -29,6 +29,7 @@ pages_dados = {
     "Matrizes de Dados": [
         st.Page("pages/frota.py", title="Frota", icon="🚌"),
         st.Page("pages/linhas.py", title="Linhas", icon="🚏"),
+        st.Page("pages/teste.py", title="Teste", icon="🚏")
     ]
 }
 
