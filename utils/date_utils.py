@@ -1,6 +1,8 @@
 import datetime
 import math
 import calendar
+import pandas as pd
+from calendar import monthrange
 
 #--------------------------------------------------------
 # Retorna a quantidade de semanas no mês.
@@ -87,3 +89,17 @@ def dia_da_semana(data):
     ]
 
     return nomes[data.weekday()]
+
+"""
+Retorna os dias do mês de acordo com uma data
+input: string da data
+output: lista de datas
+
+"""
+def dias_do_mes(data_referencia):
+    data = pd.to_datetime(data_referencia) # Garante que é datetime
+    _, total_dias = monthrange(data.year, data.month) # Número de dias no mês
+    
+    dias = [pd.Timestamp(f"{data.year}-{data.month:02d}-{dia:02d}") for dia in range(1, total_dias + 1)] # Gera lista de datas
+    return pd.DataFrame({"Dia": dias})
+

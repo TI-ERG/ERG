@@ -1,6 +1,5 @@
 import traceback
 from io import BytesIO
-from datetime import date
 import streamlit as st
 import pandas as pd
 from copy import copy
@@ -12,6 +11,8 @@ from openpyxl.cell.cell import MergedCell
 from utils import json_utils
 from utils import files_utils
 from utils import date_utils
+
+MAPA_MODAL = {"IO": "Alimentador", "CM": "Comum", "SD": "Semi-Direto"}
 
 # region FUNÇÕES
 def copiar_range(ws, min_row, max_row, min_col, max_col, values=True):
@@ -167,12 +168,121 @@ def preencher_totalizador(nova_aba, linha_inicio, linha_fim, linha_totalizador, 
         nova_aba.cell(row=linha_totalizador, column=col_base + 4).value = total_demanda_ev
         nova_aba.cell(row=linha_totalizador, column=col_base + 5).value = total_lugares_ev
 
-def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_modal):
-    # === 1) Copiar blocos fixos ===
-    cabecalho = copiar_range(nova_aba, 5, 6, 1, 46, True)       # A5:AT6
+def preencher_conferencia(wb, df, tm5=False):
+    ws = wb["Conferência"]
+    linha_excel = 4
+    df_filtrado = df[df["Codigo"] == "M105"] if tm5 else df[~df["Codigo"].isin(["M105"])]
+
+    for row in df_filtrado.itertuples(index=False): 
+        ws[f"A{linha_excel}"] = row.Codigo 
+        ws[f"B{linha_excel}"] = row.ERG_U1
+        ws[f"C{linha_excel}"] = row.MET_U1
+        ws[f"E{linha_excel}"] = row.EXT_U1
+        ws[f"F{linha_excel}"] = row.FURO_U1
+        ws[f"H{linha_excel}"] = row.ERG_U2
+        ws[f"I{linha_excel}"] = row.MET_U2
+        ws[f"K{linha_excel}"] = row.EXT_U2
+        ws[f"L{linha_excel}"] = row.FURO_U2
+        ws[f"N{linha_excel}"] = row.ERG_S1
+        ws[f"O{linha_excel}"] = row.MET_S1
+        ws[f"Q{linha_excel}"] = row.EXT_S1
+        ws[f"R{linha_excel}"] = row.FURO_S1
+        ws[f"T{linha_excel}"] = row.ERG_S2
+        ws[f"U{linha_excel}"] = row.MET_S2
+        ws[f"W{linha_excel}"] = row.EXT_S2
+        ws[f"X{linha_excel}"] = row.FURO_S2
+        ws[f"Z{linha_excel}"] = row.ERG_D1
+        ws[f"AA{linha_excel}"] = row.MET_D1
+        ws[f"AC{linha_excel}"] = row.EXT_D1
+        ws[f"AD{linha_excel}"] = row.FURO_D1
+        ws[f"AF{linha_excel}"] = row.ERG_D2
+        ws[f"AG{linha_excel}"] = row.MET_D2
+        ws[f"AI{linha_excel}"] = row.EXT_D2
+        ws[f"AJ{linha_excel}"] = row.FURO_D2
+        linha_excel += 1
+    
+    return wb
+
+def criar_abas_com_dias(wb, tm5=False):
+    if "Modelo" not in wb.sheetnames:
+        st.warning("⚠️ A aba Modelo não existe na planilha.")
+        st.stop()
+
+    df_det3 = df_det2.copy()
+    df_det3["Dia"] = pd.to_datetime(df_det3["Dia"], dayfirst=True, errors="coerce")
+    df_filtrado = df_det3[df_det3["Codigo"] == "M105"] if tm5 else df_det3[~df_det3["Codigo"].isin(["M105"])]
+    df_filtrado = df_filtrado.reset_index(drop=True)
+    data_ref = df_filtrado.loc[0, "Dia"]
+
+    aba_modelo = wb["Modelo"]
+    aba_modelo["A2"] = "Nome da Empresa: Expresso Rio Guaíba"
+    aba_modelo["D2"] = "Código da Empresa: GU99"
+    aba_modelo["G2"] = f"Mês de referência: {data_ref.month_name(locale='pt_BR')}/{data_ref.year}"
+
+    total_semanas = date_utils.semanas_no_mes(data_ref)
+
+    posicoes_dias = {
+        0: "E5",   # segunda
+        1: "K5",   # terça
+        2: "Q5",   # quarta
+        3: "W5",   # quinta
+        4: "AC5",  # sexta
+        5: "AI5",  # sábado
+        6: "AO5",  # domingo
+    }
+
+    colunas_dias = {
+        d: column_index_from_string(cel.split("5")[0])
+        for d, cel in posicoes_dias.items()
+    }
+
+    dias_mes = date_utils.dias_do_mes(data_ref) # Lista de datas do mês
+
+    feriados_dict = {
+        row["data"].strftime("%d/%m/%Y"): row["escala"]
+        for _, row in df_feriado_editado.iterrows()
+    }
+
+    fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid") # Amarelo
+
+    for semana_num in range(1, total_semanas + 1):
+        nome_aba = date_utils.semana_extenso_numero(semana_num)
+
+        if nome_aba in wb.sheetnames:
+            del wb[nome_aba]
+
+        nova_aba = wb.copy_worksheet(aba_modelo)
+        nova_aba.title = nome_aba
+
+        # Lista de datas da semana
+        dias_semana = dias_mes[dias_mes["Dia"].apply(date_utils.semana_do_mes) == semana_num]
+
+        for _, row in dias_semana.iterrows():
+            dia = row["Dia"]
+            dia_semana = dia.weekday()
+            cel = posicoes_dias[dia_semana]
+
+            texto = f"{date_utils.dia_da_semana(dia)} Dia: {dia.day}"
+
+            dia_key = dia.strftime("%d/%m/%Y")
+            if dia_key in feriados_dict:
+                texto += f" (Escala de {feriados_dict[dia_key]})"
+                nova_aba[cel].fill = fill_feriado
+
+            nova_aba[cel] = texto
+
+        # Insere os dados por semana
+        inserir_dados_por_semana(nova_aba, semana_num, df_filtrado, colunas_dias, MAPA_MODAL)
+    
+    del wb["Modelo"]
+    return wb
+
+def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_MODAL):
+    # === 1) Copiar ranges fixos ===
+    cabecalho = copiar_range(nova_aba, 5, 6, 1, 46, True)        # A5:AT6
     linha_dados = copiar_range(nova_aba, 7, 7, 1, 46, False)     # A7:AT7
     totalizador_tpl = copiar_range(nova_aba, 8, 8, 1, 46, False) # A8:AT8
-    legenda = copiar_range(nova_aba, 10, 18, 1, 9, True)        # A10:I18
+    legenda = copiar_range(nova_aba, 10, 18, 1, 9, True)         # A10:I18
 
     # === 2) Limpar área de dados (linhas 8 até 19) ===
     for merge in list(nova_aba.merged_cells.ranges): # Remover mesclagens que tocam as linhas 8 a 19
@@ -180,6 +290,9 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
             nova_aba.unmerge_cells(str(merge))
 
     nova_aba.delete_rows(8, 12)  # remove linhas 8 a 19 (12 linhas)
+    # Ordena por Modal
+    ordem_modal = list(MAPA_MODAL.keys())  # ["IO", "CM", "SD"]
+    df_det2["Modal"] = pd.Categorical(df_det2["Modal"], categories=ordem_modal, ordered=True)
 
     # === 3) Criar df_semana ===
     df_semana = df_det2[
@@ -189,8 +302,12 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
 
     df_semana["Dia"] = pd.to_datetime(df_semana["Dia"], dayfirst=True, errors="coerce")
 
-    df_sent1 = df_semana[df_semana["Sent"] == 1].sort_values(["Codigo", "Dia", "THor"])
-    df_sent2 = df_semana[df_semana["Sent"] == 2].sort_values(["Codigo", "Dia", "THor"])
+    df_sent1 = df_semana[df_semana["Sent"] == 1].sort_values(["Modal", "Codigo", "Dia", "THor"])
+    df_sent2 = df_semana[df_semana["Sent"] == 2].sort_values(["Modal", "Codigo", "Dia", "THor"])
+    
+    # === Barra de progresso ===
+    total_blocos = df_sent1["Codigo"].nunique() + df_sent2["Codigo"].nunique()
+    contador = 0
 
     # === 4) BLOCO SENT 1 ===
     linha_global_1 = 7 # primeira linha de dados de Sent 1
@@ -212,7 +329,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
             if not nova_aba.cell(row=linha_atual, column=1).value:
                 nova_aba.cell(row=linha_atual, column=1).value = row["Codigo"]
                 nova_aba.cell(row=linha_atual, column=2).value = row["Linha"]
-                nova_aba.cell(row=linha_atual, column=3).value = mapa_modal.get(row["Modal"], row["Modal"])
+                nova_aba.cell(row=linha_atual, column=3).value = MAPA_MODAL.get(row["Modal"], row["Modal"])
                 nova_aba.cell(row=linha_atual, column=4).value = row["Sent"]
 
             # Horários
@@ -227,6 +344,11 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
 
         # depois de preencher todas as viagens desse código, avança o bloco de linhas para o próximo código
         linha_global_1 = linha_global_1 + max_ordem + 1
+        
+        # Atualiza progresso
+        contador += 1
+        progresso.progress(contador / total_blocos)
+        status_text.write(f"Processando semana: {semana_num} Sentido: 1 Linha: {codigo}")
 
     ultima_linha_sent1 = linha_global_1 - 1
 
@@ -269,7 +391,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
                 if not nova_aba.cell(row=linha_atual, column=1).value:
                     nova_aba.cell(row=linha_atual, column=1).value = row["Codigo"]
                     nova_aba.cell(row=linha_atual, column=2).value = row["Linha"]
-                    nova_aba.cell(row=linha_atual, column=3).value = mapa_modal.get(row["Modal"], row["Modal"])
+                    nova_aba.cell(row=linha_atual, column=3).value = MAPA_MODAL.get(row["Modal"], row["Modal"])
                     nova_aba.cell(row=linha_atual, column=4).value = row["Sent"]
 
                 if row["Observacao"] == "OK":
@@ -282,6 +404,11 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
                     nova_aba.cell(row=linha_atual, column=col_base + 5).value = row["Oferta"]
 
             linha_global_2 = linha_global_2 + max_ordem + 1
+
+            # Atualiza progresso
+            contador += 1
+            progresso.progress(contador / total_blocos)
+            status_text.write(f"Processando semana: {semana_num} Sentido: 2 Linha: {codigo}")
 
         linha_fim_sent2 = linha_global_2 - 1
         linha_totalizador_2 = linha_fim_sent2 + 1
@@ -304,77 +431,6 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_m
         linha_legenda = linha_totalizador_1 + 4
         colar_range(nova_aba, legenda, linha_legenda, 1)
 
-def criar_abas_com_dias(wb):
-    if "Modelo" not in wb.sheetnames:
-        st.warning("⚠️ A aba Modelo não existe na planilha.")
-        st.stop()
-
-    df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce")
-    data_ref = df_det2.loc[0, "Dia"]
-
-    aba_modelo = wb["Modelo"]
-    aba_modelo["A2"] = "Nome da Empresa: Expresso Rio Guaíba"
-    aba_modelo["D2"] = "Código da Empresa: GU99"
-    aba_modelo["G2"] = f"Mês de referência: {data_ref.month_name(locale='pt_BR')}/{data_ref.year}"
-
-    total_semanas = date_utils.semanas_no_mes(data_ref)
-
-    posicoes_dias = {
-        0: "E5",   # segunda
-        1: "K5",   # terça
-        2: "Q5",   # quarta
-        3: "W5",   # quinta
-        4: "AC5",  # sexta
-        5: "AI5",  # sábado
-        6: "AO5",  # domingo
-    }
-
-    colunas_dias = {
-        d: column_index_from_string(cel.split("5")[0])
-        for d, cel in posicoes_dias.items()
-    }
-
-    mapa_modal = {"IO": "Alimentador", "CM": "Comum", "SD": "Semi-Direto"}
-
-    df_dias = df_det2[["Dia"]].drop_duplicates().sort_values("Dia")
-
-    feriados_dict = {
-        row["data"].strftime("%d/%m/%Y"): row["escala"]
-        for _, row in df_feriado_editado.iterrows()
-    }
-
-    fill_feriado = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid") # Amarelo
-
-    for semana_num in range(1, total_semanas + 1):
-        nome_aba = date_utils.semana_extenso_numero(semana_num)
-
-        if nome_aba in wb.sheetnames:
-            del wb[nome_aba]
-
-        nova_aba = wb.copy_worksheet(aba_modelo)
-        nova_aba.title = nome_aba
-
-        dias_semana = df_dias[df_dias["Dia"].apply(date_utils.semana_do_mes) == semana_num]
-        
-        for _, row in dias_semana.iterrows():
-            dia = row["Dia"]
-            dia_semana = dia.weekday()
-            cel = posicoes_dias[dia_semana]
-
-            texto = f"{date_utils.dia_da_semana(dia)} Dia: {dia.day}"
-
-            dia_key = dia.strftime("%d/%m/%Y")
-            if dia_key in feriados_dict:
-                texto += f" (Escala de {feriados_dict[dia_key]})"
-                nova_aba[cel].fill = fill_feriado
-
-            nova_aba[cel] = texto
-
-        # Insere os dados por semana
-        inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, mapa_modal)
-
-    del wb["Modelo"]
-    return wb
 # endregion
 
 # Configuração da página
@@ -454,12 +510,14 @@ if botao:
             # Arquivo desempenho diário das linhas
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
-
+            
             status.update(label="Analisando dados...", state="running", expanded=False)
             st.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
             # Dropa colunas desnecessárias
-            columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Sent.1', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
+            columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Oferta', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
             df_det1 = df_det1.drop(columns=columns_to_drop)
+            # Renomeia capacidade sentada para Oferta
+            df_det1.rename(columns={'Sent.1': 'Oferta'}, inplace=True)
             # Merge com arquivo de linhas para ter a modalidade/serviço
             df_det1 = df_det1.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
             df_det1 = df_det1.drop(columns=["Cod_Met"])
@@ -522,57 +580,44 @@ if botao:
             )
 
             # Lendo Planilha modelo ModeloPDO.xlsx
-            status.update(label="Preenchendo a planilha modelo...", state="running", expanded=False)
-            wb = load_workbook(config['pdo']['modelo_pdo'])
+            status.update(label="Preenchendo a planilha modelo...", state="running", expanded=True)
+            wb_erg = load_workbook(config['pdo']['modelo_pdo'])
+            wb_tm5 = load_workbook(config['pdo']['modelo_pdo'])
 
             # 1️⃣ CONFERÊNCIA
-            st.write("✏ Editando a planilha - Aba de conferência...")
-            ws_conf = wb["Conferência"]
-            linha_excel = 4
-            for row in df_conf2.itertuples(index=False): 
-                ws_conf[f"A{linha_excel}"] = row.Codigo 
-                ws_conf[f"B{linha_excel}"] = row.ERG_U1
-                ws_conf[f"C{linha_excel}"] = row.MET_U1
-                ws_conf[f"E{linha_excel}"] = row.EXT_U1
-                ws_conf[f"F{linha_excel}"] = row.FURO_U1
-                ws_conf[f"H{linha_excel}"] = row.ERG_U2
-                ws_conf[f"I{linha_excel}"] = row.MET_U2
-                ws_conf[f"K{linha_excel}"] = row.EXT_U2
-                ws_conf[f"L{linha_excel}"] = row.FURO_U2
-                ws_conf[f"N{linha_excel}"] = row.ERG_S1
-                ws_conf[f"O{linha_excel}"] = row.MET_S1
-                ws_conf[f"Q{linha_excel}"] = row.EXT_S1
-                ws_conf[f"R{linha_excel}"] = row.FURO_S1
-                ws_conf[f"T{linha_excel}"] = row.ERG_S2
-                ws_conf[f"U{linha_excel}"] = row.MET_S2
-                ws_conf[f"W{linha_excel}"] = row.EXT_S2
-                ws_conf[f"X{linha_excel}"] = row.FURO_S2
-                ws_conf[f"Z{linha_excel}"] = row.ERG_D1
-                ws_conf[f"AA{linha_excel}"] = row.MET_D1
-                ws_conf[f"AC{linha_excel}"] = row.EXT_D1
-                ws_conf[f"AD{linha_excel}"] = row.FURO_D1
-                ws_conf[f"AF{linha_excel}"] = row.ERG_D2
-                ws_conf[f"AG{linha_excel}"] = row.MET_D2
-                ws_conf[f"AI{linha_excel}"] = row.EXT_D2
-                ws_conf[f"AJ{linha_excel}"] = row.FURO_D2
-                linha_excel += 1
-
+            st.write("✏ Editando a planilha ERG - Aba de conferência...")
+            wb_erg = preencher_conferencia(wb_erg, df_conf2, False)
+            st.write("✏ Editando a planilha TM5 - Aba de conferência...")
+            wb_tm5 = preencher_conferencia(wb_tm5, df_conf2, True)
                         
             # 2️⃣ SEMANAS
-            st.write("✏ Editando a planilha - Abas semanais...")
             # Crio as abas das semanas e preencho os dias/feriados
-            wb = criar_abas_com_dias(wb)
-            
+            st.write("✏ Editando a planilha ERG - Abas semanais...")
+            progresso = st.progress(0)
+            status_text = st.empty()
+            wb_erg = criar_abas_com_dias(wb_erg, False)
+            st.write("✏ Editando a planilha TM5 - Abas semanais...")
+            progresso = st.progress(0)
+            status_text = st.empty()
+            wb_tm5 = criar_abas_com_dias(wb_tm5, True)
+            progresso.empty()
+            status_text.empty()
+
             # 3️⃣ TOTAL GERAL
-            st.write("✏ Editando a planilha - Aba de totais...")
+            st.write("✏ Editando a planilha ERG - Aba de totais...")
 
             # Salvar em memória
             status.update(label="Salvando...", state="running", expanded=False)
-            st.write("💾 Salvando a planilha...")
-            buffer_pdo = BytesIO()
-            wb.save(buffer_pdo)
-            buffer_pdo.seek(0)
-            st.session_state["buffer_pdo"] = buffer_pdo # Arquivo
+            st.write("💾 Salvando planilha ERG...")
+            buffer_pdo_erg = BytesIO()
+            wb_erg.save(buffer_pdo_erg)
+            buffer_pdo_erg.seek(0)
+            st.session_state["buffer_pdo_erg"] = buffer_pdo_erg # Arquivo ERG
+            st.write("💾 Salvando planilha TM5...")
+            buffer_pdo_tm5 = BytesIO()
+            wb_tm5.save(buffer_pdo_tm5)
+            buffer_pdo_tm5.seek(0)
+            st.session_state["buffer_pdo_tm5"] = buffer_pdo_tm5 # Arquivo TM5
             st.session_state["pdo"] = f"{df_det2.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
 
             status.update(label="Processo terminado!", state="complete", expanded=False)
@@ -591,22 +636,23 @@ if botao:
         df_conf2 = None
         df_conf_merged = None
         buffer_pdo = None
-        wb = None
+        wb_erg = None
+        wb_tm5 = None
 
 # ✳️ Downloads ✳️
 if st.session_state.get("pdo", False):  
     col1, col2, col3 = st.columns([1,1,5], vertical_alignment='top')
     with col1:
         st.download_button(
-            label="📥 Baixar PDO-ERG", 
-            data=st.session_state["buffer_pdo"], 
+            label="📥 Download PDO-ERG", 
+            data=st.session_state["buffer_pdo_erg"], 
             file_name=f"GUAIBA [{st.session_state["pdo"]}].xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
         )
     with col2:     
         st.download_button(
-            label="📥 Baixar PDO-TM5", 
-            data="conteúdo do arquivo", 
+            label="📥 Download PDO-TM5", 
+            data=st.session_state["buffer_pdo_tm5"], 
             file_name=f"GUAIBA-TM5 [{st.session_state["pdo"]}].xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
         )
