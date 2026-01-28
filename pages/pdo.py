@@ -203,6 +203,14 @@ def preencher_conferencia(wb, df, tm5=False):
     
     return wb
 
+def preencher_totais(wb, tm5=False):
+    ws = wb["Total Geral"]
+    ws["D5"] = config["bod"]["bod_km_tm5_1"] if tm5 else config["bod"]["bod_km_linhas_1"]
+    ws["D6"] = config["bod"]["bod_km_tm5_2"] if tm5 else config["bod"]["bod_km_linhas_2"]
+    ws["D7"] = (ws["D5"].value or 0) + (ws["D6"].value or 0)
+
+    return wb
+
 def criar_abas_com_dias(wb, tm5=False):
     if "Modelo" not in wb.sheetnames:
         st.warning("⚠️ A aba Modelo não existe na planilha.")
@@ -348,7 +356,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_M
         # Atualiza progresso
         contador += 1
         progresso.progress(contador / total_blocos)
-        status_text.write(f"Processando semana: {semana_num} Sentido: 1 Linha: {codigo}")
+        status_text.write(f"Processando semana: {semana_num}  |  Sentido: 1  |  Linha: {codigo}")
 
     ultima_linha_sent1 = linha_global_1 - 1
 
@@ -408,7 +416,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_M
             # Atualiza progresso
             contador += 1
             progresso.progress(contador / total_blocos)
-            status_text.write(f"Processando semana: {semana_num} Sentido: 2 Linha: {codigo}")
+            status_text.write(f"Processando semana: {semana_num}  |  Sentido: 2  |  Linha: {codigo}")
 
         linha_fim_sent2 = linha_global_2 - 1
         linha_totalizador_2 = linha_fim_sent2 + 1
@@ -536,7 +544,6 @@ if botao:
             st.write("🧠 Processando os dados para conferência...")
             df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
             df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
-
             # Atualizo com o feriado, se houver
             df_feriado_editado = df_feriado_editado.dropna(how="all") # Limpa se não houver dados
             if not df_feriado_editado.empty:
@@ -549,7 +556,6 @@ if botao:
                 df_conf1 = df_conf_merged
 
             df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"], errors="ignore") # Dropa colunas incluindo as usadas no feriado
-            
             # Agrupa
             df_conf2 = (
                 df_conf1
@@ -570,7 +576,6 @@ if botao:
                                         fill_value=0)
                     .reset_index()
             )
-
             # Merge com previstas Metroplan
             df_conf2 = df_conf2.merge(
                 df_prev_met,
@@ -579,24 +584,26 @@ if botao:
                 how="left"
             )
 
-            # Lendo Planilha modelo ModeloPDO.xlsx
+            # 🧩 Lendo Planilha modelo Modelo_PDO.xlsx
             status.update(label="Preenchendo a planilha modelo...", state="running", expanded=True)
             wb_erg = load_workbook(config['pdo']['modelo_pdo'])
             wb_tm5 = load_workbook(config['pdo']['modelo_pdo'])
 
             # 1️⃣ CONFERÊNCIA
-            st.write("✏ Editando a planilha ERG - Aba de conferência...")
+            st.write("✏️ Editando a planilha ERG - Aba de conferência...")
             wb_erg = preencher_conferencia(wb_erg, df_conf2, False)
-            st.write("✏ Editando a planilha TM5 - Aba de conferência...")
+            st.write("✏️ Editando a planilha TM5 - Aba de conferência...")
             wb_tm5 = preencher_conferencia(wb_tm5, df_conf2, True)
                         
             # 2️⃣ SEMANAS
             # Crio as abas das semanas e preencho os dias/feriados
-            st.write("✏ Editando a planilha ERG - Abas semanais...")
+            st.write("✏️ Editando a planilha ERG - Abas semanais...")
             progresso = st.progress(0)
             status_text = st.empty()
             wb_erg = criar_abas_com_dias(wb_erg, False)
-            st.write("✏ Editando a planilha TM5 - Abas semanais...")
+            progresso.empty()
+            status_text.empty()
+            st.write("✏️ Editando a planilha TM5 - Abas semanais...")
             progresso = st.progress(0)
             status_text = st.empty()
             wb_tm5 = criar_abas_com_dias(wb_tm5, True)
@@ -604,10 +611,14 @@ if botao:
             status_text.empty()
 
             # 3️⃣ TOTAL GERAL
-            st.write("✏ Editando a planilha ERG - Aba de totais...")
+            st.write("✏️ Editando a planilha ERG - Aba de totais...")
+            wb_erg = preencher_totais(wb_erg)
+            st.write("✏️ Editando a planilha TM5 - Aba de totais...")
+            wb_tm5 = preencher_totais(wb_tm5)
 
-            # Salvar em memória
+            # 🧩 Salvar em memória
             status.update(label="Salvando...", state="running", expanded=False)
+
             st.write("💾 Salvando planilha ERG...")
             buffer_pdo_erg = BytesIO()
             wb_erg.save(buffer_pdo_erg)
