@@ -168,7 +168,7 @@ def preencher_totalizador(nova_aba, linha_inicio, linha_fim, linha_totalizador, 
         nova_aba.cell(row=linha_totalizador, column=col_base + 4).value = total_demanda_ev
         nova_aba.cell(row=linha_totalizador, column=col_base + 5).value = total_lugares_ev
 
-def preencher_conferencia(wb, df, tm5=False):
+def preencher_conferencia(wb, df, tm5):
     ws = wb["Conferência"]
     linha_excel = 4
     df_filtrado = df[df["Codigo"] == "M105"] if tm5 else df[~df["Codigo"].isin(["M105"])]
@@ -203,22 +203,109 @@ def preencher_conferencia(wb, df, tm5=False):
     
     return wb
 
-def preencher_totais(wb, tm5=False):
+def preencher_totais(wb, tm5):
+    cerg_s1 = ["ERG_U1", "ERG_S1", "ERG_D1"]
+    cerg_s2 = ["ERG_U2", "ERG_S2", "ERG_D2"]
+    cmet_s1 = ["MET_U1", "MET_S1", "MET_D1"]
+    cmet_s2 = ["MET_U2", "MET_S2", "MET_D2"]
+    cext_s1 = ["EXT_U1", "EXT_S1", "EXT_D1"]
+    cext_s2 = ["EXT_U2", "EXT_S2", "EXT_D2"]
+    cfur_s1 = ["FURO_U1", "FURO_S1", "FURO_D1"]
+    cfur_s2 = ["FURO_U2", "FURO_S2", "FURO_D2"]
+    
+    df_Conf_filtrado = df_conf[df_conf["Codigo"] == "M105"] if tm5 else df_conf[df_conf["Codigo"] != "M105"]
     ws = wb["Total Geral"]
+
+    # Km
     ws["D5"] = config["bod"]["bod_km_tm5_1"] if tm5 else config["bod"]["bod_km_linhas_1"]
     ws["D6"] = config["bod"]["bod_km_tm5_2"] if tm5 else config["bod"]["bod_km_linhas_2"]
     ws["D7"] = (ws["D5"].value or 0) + (ws["D6"].value or 0)
+    # Viagens
+    ws["B5"] = df_Conf_filtrado[cmet_s1].sum().sum() # Informo o total das viagens previstas Metroplan da planilha, independente do que foi feito
+    ws["B6"] = df_Conf_filtrado[cmet_s2].sum().sum() # Informo o total das viagens previstas Metroplan da planilha, independente do que foi feito
+    ws["B7"] = (ws["B5"].value or 0) + (ws["B6"].value or 0)
+    # Extras
+    ext_s1 = (df_Conf_filtrado[cerg_s1].sum().sum() - df_Conf_filtrado[cmet_s1].sum().sum()) + (df_Conf_filtrado[cext_s1].sum().sum() - df_Conf_filtrado[cfur_s1].sum().sum())
+    ext_s2 = (df_Conf_filtrado[cerg_s2].sum().sum() - df_Conf_filtrado[cmet_s2].sum().sum()) + (df_Conf_filtrado[cext_s2].sum().sum() - df_Conf_filtrado[cfur_s2].sum().sum())
+    ws["C5"] = ext_s1 if ext_s1 > 0 else 0
+    ws["C6"] = ext_s2 if ext_s2 > 0 else 0
+    ws["C7"] = ext_s1 + ext_s2
 
     return wb
+
+def processar_detalhado_linha():
+    df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
+    # Dropa colunas desnecessárias
+    columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Oferta', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
+    df_det1 = df_det1.drop(columns=columns_to_drop)
+    # Renomeia capacidade sentada para Oferta
+    df_det1.rename(columns={'Sent.1': 'Oferta'}, inplace=True)
+    # Merge com arquivo de linhas para ter a modalidade/serviço
+    df_det1 = df_det1.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
+    df_det1 = df_det1.drop(columns=["Cod_Met"])
+    df_det1["Observacao"] = df_det1["Observacao"].astype(str).str.strip()
+    # Exclui viagens que NÃO TEM passageiros (possíveis erros de digitação)
+    df_det2 = df_det1[~(df_det1["Passag"].isna() & (df_det1["Observacao"] != "Furo de Viagem"))]
+    # Preenche o horário das previstas com as realizadas nas viagens extras (vou usar esta coluna para os horários)
+    df_det2.loc[:, "THor"] = df_det2["THor"].fillna(df_det2["Real"])
+    # Converte e ordena
+    df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
+    df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
+    
+    return df_det2
+
+def processar_conferencia():
+    df_conf1 = df_det[["Codigo", "Sent", "Dia", "Observacao"]]
+    df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
+    # Atualizo com o feriado, se houver
+    if not df_feriado_editado.empty:
+        # 1. Faz o merge com base na data
+        df_conf_merged = df_conf1.merge(df_feriado_editado, left_on='Dia', right_on='data', how='left')
+        # 2. Atualiza 'Dia Semana' com base na escala
+        df_conf_merged.loc[df_conf_merged['escala'] == 'Sábado', 'Dia Semana'] = 'S'
+        df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
+        # 3. Remove colunas extras
+        df_conf1 = df_conf_merged
+
+    df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"], errors="ignore") # Dropa colunas incluindo as usadas no feriado
+    # Agrupa
+    df_conf2 = (
+        df_conf1
+            .assign(
+                Tipo=lambda x: x['Observacao'].map({
+                    'OK': 'ERG',
+                    'Viagem Extra': 'EXT',
+                    'Furo de Viagem': 'FURO'
+                }),
+                Chave=lambda x: x['Tipo'] + '_' + x['Dia Semana'] + x['Sent'].astype(str)
+            )
+            .groupby(['Codigo', 'Chave'])
+            .size()
+            .unstack(fill_value=0)
+            .reindex(columns=['ERG_U1', 'EXT_U1', 'FURO_U1', 'ERG_U2', 'EXT_U2', 'FURO_U2',
+                            'ERG_S1', 'EXT_S1', 'FURO_S1', 'ERG_S2', 'EXT_S2', 'FURO_S2',
+                            'ERG_D1', 'EXT_D1', 'FURO_D1', 'ERG_D2', 'EXT_D2', 'FURO_D2'],
+                                fill_value=0)
+            .reset_index()
+    )
+    # Merge com previstas Metroplan
+    df_conf2 = df_conf2.merge(
+        df_prev_met,
+        left_on="Codigo",
+        right_on="Codigo",
+        how="outer"
+    ).fillna(0)
+
+    return df_conf2
 
 def criar_abas_com_dias(wb, tm5=False):
     if "Modelo" not in wb.sheetnames:
         placeholder.warning("⚠️ A aba Modelo não existe na planilha.")
         st.stop()
 
-    df_det3 = df_det2.copy()
-    df_det3["Dia"] = pd.to_datetime(df_det3["Dia"], dayfirst=True, errors="coerce")
-    df_filtrado = df_det3[df_det3["Codigo"] == "M105"] if tm5 else df_det3[~df_det3["Codigo"].isin(["M105"])]
+    df_det1 = df_det.copy()
+    df_det1["Dia"] = pd.to_datetime(df_det1["Dia"], dayfirst=True, errors="coerce")
+    df_filtrado = df_det1[df_det1["Codigo"] == "M105"] if tm5 else df_det1[~df_det1["Codigo"].isin(["M105"])]
     df_filtrado = df_filtrado.reset_index(drop=True)
     data_ref = df_filtrado.loc[0, "Dia"]
 
@@ -285,7 +372,7 @@ def criar_abas_com_dias(wb, tm5=False):
     del wb["Modelo"]
     return wb
 
-def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_MODAL):
+def inserir_dados_por_semana(nova_aba, semana_num, df_det, colunas_dias, MAPA_MODAL):
     # === 1) Copiar ranges fixos ===
     cabecalho = copiar_range(nova_aba, 5, 6, 1, 46, True)        # A5:AT6
     linha_dados = copiar_range(nova_aba, 7, 7, 1, 46, False)     # A7:AT7
@@ -300,12 +387,12 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_M
     nova_aba.delete_rows(8, 12)  # remove linhas 8 a 19 (12 linhas)
     # Ordena por Modal
     ordem_modal = list(MAPA_MODAL.keys())  # ["IO", "CM", "SD"]
-    df_det2["Modal"] = pd.Categorical(df_det2["Modal"], categories=ordem_modal, ordered=True)
+    df_det["Modal"] = pd.Categorical(df_det["Modal"], categories=ordem_modal, ordered=True)
 
     # === 3) Criar df_semana ===
-    df_semana = df_det2[
-        (df_det2["Dia"].apply(date_utils.semana_do_mes) == semana_num) &
-        (df_det2["Observacao"] != "Furo de Viagem")
+    df_semana = df_det[
+        (df_det["Dia"].apply(date_utils.semana_do_mes) == semana_num) &
+        (df_det["Observacao"] != "Furo de Viagem")
     ].copy()
 
     df_semana["Dia"] = pd.to_datetime(df_semana["Dia"], dayfirst=True, errors="coerce")
@@ -509,79 +596,24 @@ if botao:
             st.stop()
 
         with placeholder.status("Processando, aguarde...", expanded=True) as status:
-            msg = st.empty()
+            msg = st.empty() # Placeholder para as mensagens
+
             msg.write("📄 Lendo os arquivos...")
             config = json_utils.ler_json("config.json") # Arquivo de configuração
             df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"])) # Matriz de linhas
-            df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
             df_prev_met = files_utils.ler_viagens_previstas(up_conferencia) # Planilha de viagens previstas Metroplan
-            # Arquivo desempenho diário das linhas
-            #‼️‼️‼️‼️‼️‼️‼️‼️
-
             
-            msg.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
-            # Dropa colunas desnecessárias
-            columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Oferta', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
-            df_det1 = df_det1.drop(columns=columns_to_drop)
-            # Renomeia capacidade sentada para Oferta
-            df_det1.rename(columns={'Sent.1': 'Oferta'}, inplace=True)
-            # Merge com arquivo de linhas para ter a modalidade/serviço
-            df_det1 = df_det1.merge(df_linhas[["Cod_Met", "Modal"]], left_on="Codigo", right_on="Cod_Met", how="left")
-            df_det1 = df_det1.drop(columns=["Cod_Met"])
-            df_det1["Observacao"] = df_det1["Observacao"].astype(str).str.strip()
-            # Exclui viagens que NÃO TEM passageiros (possíveis erros de digitação)
-            df_det2 = df_det1[~(df_det1["Passag"].isna() & (df_det1["Observacao"] != "Furo de Viagem"))]
-            # Preenche o horário das previstas com as realizadas nas viagens extras (vou usar esta coluna para os horários)
-            df_det2.loc[:, "THor"] = df_det2["THor"].fillna(df_det2["Real"])
-            # Converte e ordena
-            df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
-            df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
-
+            #‼️‼️‼️‼️‼️‼️‼️‼️ Arquivo desempenho diário das linhas
+            
             msg.write("🧠 Processando - Desempenho Diário das Linhas...")
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
-            msg.write("🧠 Processando os dados para conferência...")
-            df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
-            df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
-            # Atualizo com o feriado, se houver
-            df_feriado_editado = df_feriado_editado.dropna(how="all") # Limpa se não houver dados
-            if not df_feriado_editado.empty:
-                # 1. Faz o merge com base na data
-                df_conf_merged = df_conf1.merge(df_feriado_editado, left_on='Dia', right_on='data', how='left')
-                # 2. Atualiza 'Dia Semana' com base na escala
-                df_conf_merged.loc[df_conf_merged['escala'] == 'Sábado', 'Dia Semana'] = 'S'
-                df_conf_merged.loc[df_conf_merged['escala'] == 'Domingo', 'Dia Semana'] = 'D'
-                # 3. Remove colunas extras
-                df_conf1 = df_conf_merged
+            msg.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
+            df_det = processar_detalhado_linha()            
 
-            df_conf1 = df_conf1.drop(columns=["Dia", "data", "escala"], errors="ignore") # Dropa colunas incluindo as usadas no feriado
-            # Agrupa
-            df_conf2 = (
-                df_conf1
-                    .assign(
-                        Tipo=lambda x: x['Observacao'].map({
-                            'OK': 'ERG',
-                            'Viagem Extra': 'EXT',
-                            'Furo de Viagem': 'FURO'
-                        }),
-                        Chave=lambda x: x['Tipo'] + '_' + x['Dia Semana'] + x['Sent'].astype(str)
-                    )
-                    .groupby(['Codigo', 'Chave'])
-                    .size()
-                    .unstack(fill_value=0)
-                    .reindex(columns=['ERG_U1', 'EXT_U1', 'FURO_U1', 'ERG_U2', 'EXT_U2', 'FURO_U2',
-                                    'ERG_S1', 'EXT_S1', 'FURO_S1', 'ERG_S2', 'EXT_S2', 'FURO_S2',
-                                    'ERG_D1', 'EXT_D1', 'FURO_D1', 'ERG_D2', 'EXT_D2', 'FURO_D2'],
-                                        fill_value=0)
-                    .reset_index()
-            )
-            # Merge com previstas Metroplan
-            df_conf2 = df_conf2.merge(
-                df_prev_met,
-                left_on="Codigo",
-                right_on="Codigo",
-                how="left"
-            )
+            msg.write("🧠 Processando os dados para conferência...")
+            df_feriado_editado = df_feriado_editado.dropna(how="all") # Limpa se não houver dados
+            df_conf = processar_conferencia()
 
             # 🧩 Lendo Planilha modelo Modelo_PDO.xlsx
             msg.write("Lendo a planilha modelo...")
@@ -590,9 +622,9 @@ if botao:
 
             # 1️⃣ CONFERÊNCIA
             msg.write("✏️ Editando a planilha ERG - Aba de conferência...")
-            wb_erg = preencher_conferencia(wb_erg, df_conf2, False)
+            wb_erg = preencher_conferencia(wb_erg, df_conf, False)
             msg.write("✏️ Editando a planilha TM5 - Aba de conferência...")
-            wb_tm5 = preencher_conferencia(wb_tm5, df_conf2, True)
+            wb_tm5 = preencher_conferencia(wb_tm5, df_conf, True)
                         
             # 2️⃣ SEMANAS
             # Crio as abas das semanas e preencho os dias/feriados
@@ -607,9 +639,9 @@ if botao:
 
             # 3️⃣ TOTAL GERAL
             msg.write("✏️ Editando a planilha ERG - Aba de totais...")
-            wb_erg = preencher_totais(wb_erg)
+            wb_erg = preencher_totais(wb_erg, False)
             msg.write("✏️ Editando a planilha TM5 - Aba de totais...")
-            wb_tm5 = preencher_totais(wb_tm5)
+            wb_tm5 = preencher_totais(wb_tm5, True)
 
             # 🧩 Salvar em memória
             msg.write("💾 Salvando planilha ERG...")
@@ -622,7 +654,7 @@ if botao:
             wb_tm5.save(buffer_pdo_tm5)
             buffer_pdo_tm5.seek(0)
             st.session_state["buffer_pdo_tm5"] = buffer_pdo_tm5 # Arquivo TM5
-            st.session_state["pdo"] = f"{df_det2.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
+            st.session_state["pdo"] = f"{df_det.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
 
             status.update(label="Concluído!", state="complete")
 
@@ -632,13 +664,11 @@ if botao:
         placeholder.error(f"🐞 Erro: {traceback.format_exc()}")
     finally:
         df_linhas = None
+        df_prev_met = None
         df_feriado_editado = None
         df_feriado = None
-        df_det1 = None
-        df_det2 = None
-        df_conf1 = None
-        df_conf2 = None
-        df_conf_merged = None
+        df_det = None
+        df_conf = None
         buffer_pdo = None
         wb_erg = None
         wb_tm5 = None
