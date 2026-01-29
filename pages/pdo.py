@@ -229,7 +229,7 @@ def preencher_totais(wb, tm5):
     ext_s2 = (df_Conf_filtrado[cerg_s2].sum().sum() - df_Conf_filtrado[cmet_s2].sum().sum()) + (df_Conf_filtrado[cext_s2].sum().sum() - df_Conf_filtrado[cfur_s2].sum().sum())
     ws["C5"] = ext_s1 if ext_s1 > 0 else 0
     ws["C6"] = ext_s2 if ext_s2 > 0 else 0
-    ws["C7"] = ext_s1 + ext_s2
+    ws["C7"] = (ws["C5"].value or 0) + (ws["C6"].value or 0)
 
     return wb
 
