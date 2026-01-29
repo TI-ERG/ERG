@@ -178,27 +178,27 @@ def preencher_conferencia(wb, df, tm5=False):
         ws[f"B{linha_excel}"] = row.ERG_U1
         ws[f"C{linha_excel}"] = row.MET_U1
         ws[f"E{linha_excel}"] = row.EXT_U1
-        ws[f"F{linha_excel}"] = row.FURO_U1
+        ws[f"F{linha_excel}"] = -row.FURO_U1
         ws[f"H{linha_excel}"] = row.ERG_U2
         ws[f"I{linha_excel}"] = row.MET_U2
         ws[f"K{linha_excel}"] = row.EXT_U2
-        ws[f"L{linha_excel}"] = row.FURO_U2
+        ws[f"L{linha_excel}"] = -row.FURO_U2
         ws[f"N{linha_excel}"] = row.ERG_S1
         ws[f"O{linha_excel}"] = row.MET_S1
         ws[f"Q{linha_excel}"] = row.EXT_S1
-        ws[f"R{linha_excel}"] = row.FURO_S1
+        ws[f"R{linha_excel}"] = -row.FURO_S1
         ws[f"T{linha_excel}"] = row.ERG_S2
         ws[f"U{linha_excel}"] = row.MET_S2
         ws[f"W{linha_excel}"] = row.EXT_S2
-        ws[f"X{linha_excel}"] = row.FURO_S2
+        ws[f"X{linha_excel}"] = -row.FURO_S2
         ws[f"Z{linha_excel}"] = row.ERG_D1
         ws[f"AA{linha_excel}"] = row.MET_D1
         ws[f"AC{linha_excel}"] = row.EXT_D1
-        ws[f"AD{linha_excel}"] = row.FURO_D1
+        ws[f"AD{linha_excel}"] = -row.FURO_D1
         ws[f"AF{linha_excel}"] = row.ERG_D2
         ws[f"AG{linha_excel}"] = row.MET_D2
         ws[f"AI{linha_excel}"] = row.EXT_D2
-        ws[f"AJ{linha_excel}"] = row.FURO_D2
+        ws[f"AJ{linha_excel}"] = -row.FURO_D2
         linha_excel += 1
     
     return wb
@@ -213,7 +213,7 @@ def preencher_totais(wb, tm5=False):
 
 def criar_abas_com_dias(wb, tm5=False):
     if "Modelo" not in wb.sheetnames:
-        st.warning("⚠️ A aba Modelo não existe na planilha.")
+        placeholder.warning("⚠️ A aba Modelo não existe na planilha.")
         st.stop()
 
     df_det3 = df_det2.copy()
@@ -355,8 +355,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_M
         
         # Atualiza progresso
         contador += 1
-        progresso.progress(contador / total_blocos)
-        status_text.write(f"Processando semana: {semana_num}  |  Sentido: 1  |  Linha: {codigo}")
+        barra.progress(contador / total_blocos, f"Processando semana: {semana_num}  |  Sentido: 1  |  Linha: {codigo}")
 
     ultima_linha_sent1 = linha_global_1 - 1
 
@@ -415,8 +414,7 @@ def inserir_dados_por_semana(nova_aba, semana_num, df_det2, colunas_dias, MAPA_M
 
             # Atualiza progresso
             contador += 1
-            progresso.progress(contador / total_blocos)
-            status_text.write(f"Processando semana: {semana_num}  |  Sentido: 2  |  Linha: {codigo}")
+            barra.progress(contador / total_blocos, f"Processando semana: {semana_num}  |  Sentido: 2  |  Linha: {codigo}")
 
         linha_fim_sent2 = linha_global_2 - 1
         linha_totalizador_2 = linha_fim_sent2 + 1
@@ -490,6 +488,7 @@ with st.container():
 botao = st.sidebar.button("Iniciar", type="primary")
 
 st.divider()
+placeholder = st.empty() 
 
 if botao:
     try:
@@ -498,19 +497,20 @@ if botao:
 
         # Verificações de seleção dos arquivos
         if up_passageiros is None:
-            st.warning("Arquivo Relatório Desempenho Diário das Linhas não foi selecionado!", icon=":material/error_outline:")
+            placeholder.warning("Arquivo Relatório Desempenho Diário das Linhas não foi selecionado!", icon=":material/error_outline:")
             st.stop()
 
         if up_viagens is None:
-            st.warning("Arquivo Relatório Controle Operacional Detalhado por Linha!", icon=":material/error_outline:")        
+            placeholder.warning("Arquivo Relatório Controle Operacional Detalhado por Linha!", icon=":material/error_outline:")        
             st.stop()
 
         if up_conferencia is None:
-            st.warning("Planilha para conferência não foi selecionada!", icon=":material/error_outline:")
+            placeholder.warning("Planilha para conferência não foi selecionada!", icon=":material/error_outline:")
             st.stop()
 
-        with st.status("Lendo arquivos...", expanded=False) as status:
-            st.write("📄 Processando os arquivos...")
+        with placeholder.status("Processando, aguarde...", expanded=True) as status:
+            msg = st.empty()
+            msg.write("📄 Lendo os arquivos...")
             config = json_utils.ler_json("config.json") # Arquivo de configuração
             df_linhas = pd.DataFrame(json_utils.ler_json(config["matrizes"]["linhas"])) # Matriz de linhas
             df_det1 = files_utils.ler_detalhado_linha(up_viagens) # Arquivo detalhado por linha
@@ -519,8 +519,7 @@ if botao:
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
             
-            status.update(label="Analisando dados...", state="running", expanded=False)
-            st.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
+            msg.write("🧠 Processando - Controle Operacional Detalhado por Linha...")
             # Dropa colunas desnecessárias
             columns_to_drop = ['#', 'Orig', 'Dest', 'Dif', 'Parado', 'Prev', 'Real2', 'Dif2', 'CVg', 'Veiculo', 'Docmto', 'Motorista', 'Cobrador', 'EmPe', 'Oferta', 'Km_h', 'Meta', 'CVg2', 'TipoViagem']
             df_det1 = df_det1.drop(columns=columns_to_drop)
@@ -538,10 +537,10 @@ if botao:
             df_det2["Dia"] = pd.to_datetime(df_det2["Dia"], dayfirst=True, errors="coerce").dt.date
             df_det2 = df_det2.sort_values(["Sent", "Codigo", "Dia", "THor"])
 
-            st.write("🧠 Processando - Desempenho Diário das Linhas...")
+            msg.write("🧠 Processando - Desempenho Diário das Linhas...")
             #‼️‼️‼️‼️‼️‼️‼️‼️
 
-            st.write("🧠 Processando os dados para conferência...")
+            msg.write("🧠 Processando os dados para conferência...")
             df_conf1 = df_det2[["Codigo", "Sent", "Dia", "Observacao"]]
             df_conf1["Dia Semana"] = df_conf1["Dia"].map(lambda d: {0:"U",1:"U",2:"U",3:"U",4:"U",5:"S",6:"D"}[d.weekday()]) # Crio Dia Semana
             # Atualizo com o feriado, se houver
@@ -571,8 +570,8 @@ if botao:
                     .size()
                     .unstack(fill_value=0)
                     .reindex(columns=['ERG_U1', 'EXT_U1', 'FURO_U1', 'ERG_U2', 'EXT_U2', 'FURO_U2',
-                                      'ERG_S1', 'EXT_S1', 'FURO_S1', 'ERG_S2', 'EXT_S2', 'FURO_S2',
-                                      'ERG_D1', 'EXT_D1', 'FURO_D1', 'ERG_D2', 'EXT_D2', 'FURO_D2'],
+                                    'ERG_S1', 'EXT_S1', 'FURO_S1', 'ERG_S2', 'EXT_S2', 'FURO_S2',
+                                    'ERG_D1', 'EXT_D1', 'FURO_D1', 'ERG_D2', 'EXT_D2', 'FURO_D2'],
                                         fill_value=0)
                     .reset_index()
             )
@@ -585,58 +584,52 @@ if botao:
             )
 
             # 🧩 Lendo Planilha modelo Modelo_PDO.xlsx
-            status.update(label="Preenchendo a planilha modelo...", state="running", expanded=True)
+            msg.write("Lendo a planilha modelo...")
             wb_erg = load_workbook(config['pdo']['modelo_pdo'])
             wb_tm5 = load_workbook(config['pdo']['modelo_pdo'])
 
             # 1️⃣ CONFERÊNCIA
-            st.write("✏️ Editando a planilha ERG - Aba de conferência...")
+            msg.write("✏️ Editando a planilha ERG - Aba de conferência...")
             wb_erg = preencher_conferencia(wb_erg, df_conf2, False)
-            st.write("✏️ Editando a planilha TM5 - Aba de conferência...")
+            msg.write("✏️ Editando a planilha TM5 - Aba de conferência...")
             wb_tm5 = preencher_conferencia(wb_tm5, df_conf2, True)
                         
             # 2️⃣ SEMANAS
             # Crio as abas das semanas e preencho os dias/feriados
-            st.write("✏️ Editando a planilha ERG - Abas semanais...")
-            progresso = st.progress(0)
-            status_text = st.empty()
-            wb_erg = criar_abas_com_dias(wb_erg, False)
-            progresso.empty()
-            status_text.empty()
-            st.write("✏️ Editando a planilha TM5 - Abas semanais...")
-            progresso = st.progress(0)
-            status_text = st.empty()
-            wb_tm5 = criar_abas_com_dias(wb_tm5, True)
-            progresso.empty()
-            status_text.empty()
+            with msg.container():
+                st.write("✏️ Editando a planilha ERG - Abas semanais...")
+                barra = st.progress(0)
+                wb_erg = criar_abas_com_dias(wb_erg, False)
+            with msg.container():
+                st.write("✏️ Editando a planilha TM5 - Abas semanais...")
+                barra = st.progress(0)
+                wb_tm5 = criar_abas_com_dias(wb_tm5, True)
 
             # 3️⃣ TOTAL GERAL
-            st.write("✏️ Editando a planilha ERG - Aba de totais...")
+            msg.write("✏️ Editando a planilha ERG - Aba de totais...")
             wb_erg = preencher_totais(wb_erg)
-            st.write("✏️ Editando a planilha TM5 - Aba de totais...")
+            msg.write("✏️ Editando a planilha TM5 - Aba de totais...")
             wb_tm5 = preencher_totais(wb_tm5)
 
             # 🧩 Salvar em memória
-            status.update(label="Salvando...", state="running", expanded=False)
-
-            st.write("💾 Salvando planilha ERG...")
+            msg.write("💾 Salvando planilha ERG...")
             buffer_pdo_erg = BytesIO()
             wb_erg.save(buffer_pdo_erg)
             buffer_pdo_erg.seek(0)
             st.session_state["buffer_pdo_erg"] = buffer_pdo_erg # Arquivo ERG
-            st.write("💾 Salvando planilha TM5...")
+            msg.write("💾 Salvando planilha TM5...")
             buffer_pdo_tm5 = BytesIO()
             wb_tm5.save(buffer_pdo_tm5)
             buffer_pdo_tm5.seek(0)
             st.session_state["buffer_pdo_tm5"] = buffer_pdo_tm5 # Arquivo TM5
             st.session_state["pdo"] = f"{df_det2.loc[0, "Dia"].strftime("%m.%Y")}" # Condição para os botões
 
-            status.update(label="Processo terminado!", state="complete", expanded=False)
-            st.success("Arquivos gerados com sucesso!")
+            status.update(label="Concluído!", state="complete")
+
+        placeholder.success("Arquivos gerados com sucesso!")
 
     except Exception as e:  
-        status.update(label="Erro durante o processamento!", state="error")  
-        st.error(f"🐞 Erro: {traceback.format_exc()}")
+        placeholder.error(f"🐞 Erro: {traceback.format_exc()}")
     finally:
         df_linhas = None
         df_feriado_editado = None
