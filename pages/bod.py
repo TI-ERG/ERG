@@ -12,8 +12,6 @@ from copy import copy
 from utils import json_utils
 from utils import format_utils
 
-EXPANDED = False # Constante para o st.status se houver aviso
-
 # region FUNÇÕES
 def rel_viagens_expressas():
     exp = pd.read_csv(up_expressas, sep=';', encoding='Windows-1252', skiprows=2) # Pula as 2 primeiras linhas
@@ -109,13 +107,12 @@ def dados_PLE():
     missing_met = df_grouped[df_grouped['Cod_Met'].isna()]
 
     if not missing_met.empty:
-        st.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas.json: {missing_met}")
-        EXPANDED = True
+        container_info.warning(f"⚠️ As seguintes linhas do arquivo do Ecitop não estão presentes no arquivo de linhas.json: {missing_met}")
 
     return df_grouped
 
 def matriz_bod(arq):
-    st.write("📄 Lendo arquivos...")
+    msg.write("📄 Lendo arquivos...")
     df_exp = rel_viagens_expressas() # Viagens expressas
     df_transnet = rel_metroplan()    # Dados das linhas
     df_ple = dados_PLE()             # Dados PLE
@@ -130,10 +127,9 @@ def matriz_bod(arq):
     # Verifica se tem alguma linha nos dados PLE e na matriz não
     divergencia_ple = df_ple[~df_ple['Cod_Met'].isin(df_matriz['COD'])]['Cod_Met']
     if not divergencia_ple.empty:
-        st.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
-        EXPANDED = True
+        container_info.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
-    st.write("🧠 Preparando matriz...")
+    msg.write("🧠 Preparando matriz...")
     df_matriz["ANO"] = df_matriz["ANO"].fillna(df_transnet["ANO"].iloc[0]).astype(int) # Ano
     df_matriz["MES"] = df_matriz["MES"].fillna(df_transnet["MES"].iloc[0]).astype(int) # Mês
     
@@ -156,7 +152,7 @@ def matriz_bod(arq):
     df_exp.set_index(['Número Linha', 'Sentido'], inplace=True)
 
     # Preenchendo a coluna viagens expressas
-    st.write("🧠 Inserindo informações...")
+    msg.write("✏️ Inserindo informações...")
     df_matriz.loc[df_exp.index, 'VR_EXP'] = df_exp['Qt.Viagens']
 
     # Preenchendo colunas
@@ -175,7 +171,7 @@ def matriz_bod(arq):
     df_matriz["REC_TAR_ESC"] = df_matriz['ESC_R$'] # Receita tarifa escolar
     
     # Colunas/variáveis temporárias para cálculos das próximas colunas
-    st.write("🧠 Calculando colunas...")
+    msg.write("🧠 Calculando colunas...")
     df_matriz['KM_LINHA'] = df_matriz['EXTP_SIMP'] + df_matriz['EXTP_EXP']
     comb_real = df_matriz['KM_LINHA'].sum() # Soma o KM_LINHA para obter o combustível real
     comb_desloc = km - comb_real # Combustível deslocamento, KM informado na página - combustível real
@@ -214,7 +210,8 @@ st.set_page_config(layout="wide")
 config = json_utils.ler_json("config.json") # Lê arquivo de configuração
 
 st.header("📄 [BOD] Boletim Oferta e Demanda", anchor=False)
-st.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
+container_info = st.container() # Conatiner para informações
+container_info.info(fr"Último período gerado: {config['bod']['periodo']}", icon="ℹ️")
 st.divider()
 
 # Colunas do form
@@ -241,6 +238,7 @@ with col4:
     km = st.number_input("Abastecimento por Veículo", value=0)
 
 st.divider()
+placeholder = st.empty()
 botao = st.sidebar.button("Iniciar", type="primary")
 
 if botao:
@@ -250,28 +248,29 @@ if botao:
 
         # Verificações e leitura dos arquivos
         if up_expressas is None:
-            st.warning("Arquivo de viagens expressas não foi selecionado!", icon=":material/error_outline:")
+            placeholder.warning("Arquivo de viagens expressas não foi selecionado!", icon=":material/error_outline:")
             st.stop()
 
         if up_linhas is None:
-            st.warning("Arquivo de dados das linhas não foi selecionado!", icon=":material/error_outline:")        
+            placeholder.warning("Arquivo de dados das linhas não foi selecionado!", icon=":material/error_outline:")        
             st.stop()
 
         if up_ple is None:
-            st.warning("Arquivo PLE não foi selecionado!", icon=":material/error_outline:")
+            placeholder.warning("Arquivo PLE não foi selecionado!", icon=":material/error_outline:")
             st.stop()
 
         if (km is None) or (km <= 0):
-            st.warning("KM mensal não está de acordo!", icon=":material/error_outline:")
+            placeholder.warning("KM mensal não está de acordo!", icon=":material/error_outline:")
             st.stop()
 
         # Processando
-        with st.status("Processando...", expanded=False) as status:
+        with placeholder.status("Processando...", expanded=True) as status:
+            msg = st.empty()
             df_bod = matriz_bod(config['bod']['modelo_bod'])
             mes, ano = df_bod.iloc[1][['MES', 'ANO']] # Pego mês e ano para os nomes dos arquivos
 
             # region ✳️ Preencher planilha BOD Metroplan ✳️
-            st.write("✏ Preenchendo planilha Metroplan...")
+            msg.write("✏️ Preenchendo planilha Metroplan...")
 
             wb_met = load_workbook(config['bod']['modelo_metroplan'])
             wb_met['Identificação da Empresa'].cell(row=11, column=7, value=mes)
@@ -298,7 +297,7 @@ if botao:
                 for col in range(26, 29):  
                     ws.cell(row=i, column=col).number_format = '0.00'
 
-            st.write("💾 Salvando BOD Metroplan...")
+            msg.write("💾 Salvando BOD Metroplan...")
             # Salva em memória 
             buffer_met = BytesIO() 
             wb_met.save(buffer_met) 
@@ -313,7 +312,7 @@ if botao:
             wb_erg = load_workbook(config['bod']['modelo_bod'])
 
             # 1️⃣ [BOD]
-            st.write("✏ Preenchendo planilha BOD [BOD]...")
+            msg.write("✏️ Preenchendo planilha BOD [BOD]...")
             ws_bod = wb_erg['BOD']
             linha_modelo = 3 # Linha com a formatação de referência
             num_linhas_df = len(df_bod)
@@ -331,21 +330,18 @@ if botao:
                     ws_bod.cell(row=i, column=j, value=valor)
 
             #Salvo os dados no arquivo de config para o PDO
-            st.write("🔄 Atualizando arquivo de config com os dados do BOD...")
+            msg.write("🔄 Atualizando arquivo de config com os dados do BOD...")
 
             config['bod']['periodo'] = fr"{mes:02}/{ano}"
             config['bod']['bod_km_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
             config['bod']['bod_km_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'EXTP_SIMP'].sum()
             config['bod']['bod_km_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
             config['bod']['bod_km_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'EXTP_SIMP'].sum()
-            config['bod']['bod_isentos_linhas_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-            config['bod']['bod_isentos_linhas_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] != 'M105'), 'PASS_ISE'].sum()
-            config['bod']['bod_isentos_tm5_1'] = df_bod.loc[(df_bod['SENT'] == 1) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
-            config['bod']['bod_isentos_tm5_2'] = df_bod.loc[(df_bod['SENT'] == 2) & (df_bod['COD'] == 'M105'), 'PASS_ISE'].sum()
+
             json_utils.salvar_json(config, 'config.json')
 
             # 2️⃣ [SINTETICO]
-            st.write("✏ Preenchendo planilha BOD [SINTETICO]...")
+            msg.write("✏️ Preenchendo planilha BOD [SINTETICO]...")
             # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
             # Mapeamento das colunas e renomeando para os novos nomes desejados
             colunas_renomeadas = {
@@ -426,11 +422,10 @@ if botao:
 
             # Após sair do loop, verifica se há dados não inseridos
             if cods_restantes:
-                st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
-                EXPANDED = True
+                container_info.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [SINTETICO]: {list(cods_restantes)}")
 
             # 3️⃣ [ATM]
-            st.write("✏ Preenchendo planilha BOD [ATM]...")
+            msg.write("✏️ Preenchendo planilha BOD [ATM]...")
             ws_atm = wb_erg['ATM']
 
             primeiro_dia = date(ano, mes, 1)
@@ -457,7 +452,7 @@ if botao:
                     df_soma = df_sintetico[['VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']].sum()
                     for indice, valor in enumerate(df_soma, start=3):
                         ws_atm.cell(row=linha, column=indice, value=valor)
-
+                        
                     break
                 
                 # Tenta encontrar o COD no df_sin
@@ -472,11 +467,10 @@ if botao:
 
             # Após sair do loop, verifica se há dados não inseridos
             if cods_restantes:
-                st.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [ATM]: {list(cods_restantes)}")
-                EXPANDED = True
+                container_info.warning(f"⚠️ As seguintes linhas não foram inseridas porque não foram encontradas na planilha modelo [ATM]: {list(cods_restantes)}")
 
             # Salvar
-            st.write("💾 Salvando BOD ERG...")
+            msg.write("💾 Salvando BOD ERG...")
             wb_erg.remove(wb_erg["MATRIZ"])
             wb_erg.active = wb_erg.sheetnames.index('BOD')
 
@@ -515,11 +509,10 @@ if botao:
             st.session_state["bod"] = f"{mes:02}.{ano}"
             st.session_state["tab_conf_bod"] = tabela
             status.update(label="Processo concluído!", state="complete", expanded=False)
-            st.success("Arquivos gerados com sucesso!")
+            placeholder.success("Arquivos gerados com sucesso!")
 
     except Exception as e:    
-        status.update(label="Erro durante o processamento!", state="error", expanded=EXPANDED)
-        st.error(f"🐞 Erro: {traceback.format_exc()}")
+        placeholder.error(f"🐞 Erro: {traceback.format_exc()}")
 
     finally:
         wb_met = None
@@ -550,14 +543,14 @@ if st.session_state.get("bod", False):
     with comp1:
         c1, c2, c3 = st.columns(3)
         c1.download_button( 
-            label="📥 Baixar BOD-Metroplan", 
+            label="📥 Download BOD-Metroplan", 
             data= st.session_state["buffer_met"], 
             file_name= fr"90348517000169-BOD-TMA-{ano}{mes}-{ano}{mes}.xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
             )
 
         c2.download_button( 
-            label="📥 Baixar BOD-ERG", 
+            label="📥 Download BOD-ERG", 
             data=st.session_state["buffer_erg"], 
             file_name= fr"BOD {st.session_state["bod"]}.xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
