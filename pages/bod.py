@@ -111,6 +111,57 @@ def dados_PLE():
 
     return df_grouped
 
+def dados_sintetico():
+    # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
+    # Mapeamento das colunas e renomeando para os novos nomes desejados
+    colunas_renomeadas = {
+        'VR_SIMP': 'VU',
+        'VR_EXP': 'VE',
+        'EXTP_SIMP': 'RU',
+        'EXTP_EXP': 'RE',
+        'BAL': 'B',
+        'INT_TEU': 'INT_TEU',
+        'INT_TAL': 'INT_TAL',
+        'ISE': 'I',
+        'TEU_VT': 'TEU_VT',
+        'TEU_BIL': 'TEU_BIL',
+        'ESC': 'PE',
+        'DIN': 'PL',
+        'DIN_R$': 'R',
+        'PASS_ISE': 'ISENTOS', # Colunas para a aba ATM
+        'REC_TAR_COM': 'REC_TAR_COM',
+        'REC_TAR_ESC': 'REC_TAR_ESC'
+    }
+
+    # Agrupamento com renomeação já no resultado
+    df_agrupado = df_bod.groupby('COD').agg({col: 'sum' for col in colunas_renomeadas}).rename(columns=colunas_renomeadas).reset_index()
+
+    # Cálculos derivados
+    df_agrupado['INT'] = df_agrupado['INT_TEU'] + df_agrupado['INT_TAL']
+    df_agrupado['VT'] = df_agrupado['TEU_VT'] + df_agrupado['TEU_BIL']
+    df_agrupado['PP'] = df_agrupado['VT'] + df_agrupado['PE'] + df_agrupado['PL']
+    df_agrupado['PT'] = df_agrupado['I'] + df_agrupado['PP']
+    df_agrupado['PB'] = df_agrupado['B'] + df_agrupado['INT'] + df_agrupado['PT']
+    df_agrupado['VL'] = df_agrupado['VU'] + df_agrupado['VE']
+    df_agrupado['RL'] = df_agrupado['RU'] + df_agrupado['RE']
+    df_agrupado['TOTAL'] = df_agrupado['VT'] + df_agrupado['PL'] + df_agrupado['PE'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
+    df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC']
+
+    # Condicionais
+    df_agrupado['VEVL'] = np.where(df_agrupado['VE'] == 0, 0, df_agrupado['VE'] / df_agrupado['VL'])
+    df_agrupado['VTPT'] = np.where(df_agrupado['PT'] == 0, 0, df_agrupado['VT'] / df_agrupado['PT'])
+    df_agrupado['PTVL'] = np.where(df_agrupado['VL'] == 0, 0, df_agrupado['PT'] / df_agrupado['VL'])
+    df_agrupado['IPK'] = np.where(df_agrupado['RL'] == 0, 0, df_agrupado['PT'] / df_agrupado['RL'])
+
+    df_fixos = df_bod[['COD', 'NOME', 'COD_VT', 'TAR_MAX_COM']].drop_duplicates(subset='COD')
+    df_sint = pd.merge(df_fixos, df_agrupado, on='COD', how='left')
+    colunas_ordenadas = [
+        'COD', 'NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'VT', 'PE', 'PL', 
+        'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK', 'TAR_MAX_COM', 'ISENTOS', 'TOTAL', 'RECEITA'
+    ]
+
+    return df_sint[colunas_ordenadas]
+
 def matriz_bod(arq):
     msg.write("📄 Lendo arquivos...")
     df_exp = rel_viagens_expressas() # Viagens expressas
@@ -342,58 +393,8 @@ if botao:
 
             # 2️⃣ [SINTETICO]
             msg.write("✏️ Preenchendo planilha BOD [SINTETICO]...")
-            # Montagem do dataframe. Aproveito e incluo as colunas para serem usadas na aba ATM
-            # Mapeamento das colunas e renomeando para os novos nomes desejados
-            colunas_renomeadas = {
-                'VR_SIMP': 'VU',
-                'VR_EXP': 'VE',
-                'EXTP_SIMP': 'RU',
-                'EXTP_EXP': 'RE',
-                'BAL': 'B',
-                'INT_TEU': 'INT_TEU',
-                'INT_TAL': 'INT_TAL',
-                'ISE': 'I',
-                'TEU_VT': 'TEU_VT',
-                'TEU_BIL': 'TEU_BIL',
-                'ESC': 'PE',
-                'DIN': 'PL',
-                'DIN_R$': 'R',
-                'PASS_ISE': 'ISENTOS', # Colunas para a aba ATM
-                'REC_TAR_COM': 'REC_TAR_COM',
-                'REC_TAR_ESC': 'REC_TAR_ESC'
-            }
-
-            # Agrupamento com renomeação já no resultado
-            df_agrupado = df_bod.groupby('COD').agg({col: 'sum' for col in colunas_renomeadas}).rename(columns=colunas_renomeadas).reset_index()
-
-            # Cálculos derivados
-            df_agrupado['INT'] = df_agrupado['INT_TEU'] + df_agrupado['INT_TAL']
-            df_agrupado['VT'] = df_agrupado['TEU_VT'] + df_agrupado['TEU_BIL']
-            df_agrupado['PP'] = df_agrupado['VT'] + df_agrupado['PE'] + df_agrupado['PL']
-            df_agrupado['PT'] = df_agrupado['I'] + df_agrupado['PP']
-            df_agrupado['PB'] = df_agrupado['B'] + df_agrupado['INT'] + df_agrupado['PT']
-            df_agrupado['VL'] = df_agrupado['VU'] + df_agrupado['VE']
-            df_agrupado['RL'] = df_agrupado['RU'] + df_agrupado['RE']
-            df_agrupado['TOTAL'] = df_agrupado['VT'] + df_agrupado['PL'] + df_agrupado['PE'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
-            df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC']
-
-            # Condicionais
-            df_agrupado['VEVL'] = np.where(df_agrupado['VE'] == 0, 0, df_agrupado['VE'] / df_agrupado['VL'])
-            df_agrupado['VTPT'] = np.where(df_agrupado['PT'] == 0, 0, df_agrupado['VT'] / df_agrupado['PT'])
-            df_agrupado['PTVL'] = np.where(df_agrupado['VL'] == 0, 0, df_agrupado['PT'] / df_agrupado['VL'])
-            df_agrupado['IPK'] = np.where(df_agrupado['RL'] == 0, 0, df_agrupado['PT'] / df_agrupado['RL'])
-
-            df_fixos = df_bod[['COD', 'NOME', 'COD_VT', 'TAR_MAX_COM']].drop_duplicates(subset='COD')
-            df_sintetico = pd.merge(df_fixos, df_agrupado, on='COD', how='left')
-            colunas_ordenadas = [
-                'COD', 'NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'VT', 'PE', 'PL', 
-                'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK', 'TAR_MAX_COM', 'ISENTOS', 'TOTAL', 'RECEITA'
-            ]
-
-            df_sintetico = df_sintetico[colunas_ordenadas]
-
             ws_sin = wb_erg['SINTETICO']
-
+            df_sintetico = dados_sintetico()
             dados_cod = df_sintetico.set_index(['COD']).to_dict('index')  # Cria dicionário com os dados do df_final, cada COD mapeia um dict com os valores
             cods_restantes = set(dados_cod.keys()) # Lista de CODs ainda não usados
             linha = 2  # começa da linha 2
@@ -427,19 +428,18 @@ if botao:
             # 3️⃣ [ATM]
             msg.write("✏️ Preenchendo planilha BOD [ATM]...")
             ws_atm = wb_erg['ATM']
-
             primeiro_dia = date(ano, mes, 1)
             ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
             ws_atm.cell(row=4, column=7, value=f'{primeiro_dia.strftime("%d/%m/%Y")} a {ultimo_dia.strftime("%d/%m/%Y")}') # Período
             ws_atm.cell(row=5, column=7, value=date.today().strftime("%d/%m/%Y")) # Data
 
             # Excluo as colunas não usadas para facilitar a iteração e ordeno
-            df_sintetico = df_sintetico.drop(columns=['NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK'])
+            df_atm = df_sintetico.drop(columns=['NOME', 'COD_VT', 'VU', 'VE', 'VL', 'PB', 'B', 'INT', 'PT', 'I', 'PP', 'R', 'RU', 'RE', 'RL', 'VEVL', 'VTPT', 'PTVL', 'IPK'])
             colunas_ordenadas = ['COD', 'TAR_MAX_COM', 'VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']
 
-            df_sintetico = df_sintetico[colunas_ordenadas]
+            df_atm = df_atm[colunas_ordenadas]
 
-            dados_cod = df_sintetico.set_index(['COD']).to_dict('index')
+            dados_cod = df_atm.set_index(['COD']).to_dict('index')
             cods_restantes = set(dados_cod.keys()) # monto novamente a lista de CODs ainda não usados
 
             linha = 9 
@@ -449,7 +449,7 @@ if botao:
 
                 # Se encontrar o texto 'TOTAL', soma e interrompe
                 if str(celula_cod).strip().upper() == 'TOTAL':
-                    df_soma = df_sintetico[['VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']].sum()
+                    df_soma = df_atm[['VT', 'PL', 'PE', 'ISENTOS', 'TOTAL', 'RECEITA']].sum()
                     for indice, valor in enumerate(df_soma, start=3):
                         ws_atm.cell(row=linha, column=indice, value=valor)
                         
@@ -522,8 +522,6 @@ if botao:
         ws_sin = None
         ws_atm = None
         df_bod = None
-        df_agrupado = None
-        df_filtrado = None
         df_fixos = None
         df_sintetico = None
         df_soma = None
