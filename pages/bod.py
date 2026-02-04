@@ -555,7 +555,7 @@ if st.session_state.get("bod", False):
             )
     
     with comp2:
-        co1, co2 = st.columns(2)
+        co1, co2 = st.columns([1, 2])
         # Estilo para alinhar à direita
         estilo = tabela.style.set_properties(**{'text-align': 'right'}).set_table_styles([
                 {'selector': 'th', 'props': [('text-align', 'right')]}
