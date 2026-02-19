@@ -167,7 +167,7 @@ def matriz_bod(arq):
     msg.write("📄 Lendo arquivos...")
     df_exp = rel_viagens_expressas() # Viagens expressas
     df_transnet = rel_metroplan()    # Dados das linhas
-    df_ple = dados_PLE()             # Dados PLE
+    if up_ple is not None: df_ple = dados_PLE()             # Dados PLE
     df_matriz = pd.read_excel(arq, sheet_name='MATRIZ', decimal=',') # Lendo a matriz BOD
 
     # Verifica se tem alguma linha no Transnet e na matriz não
