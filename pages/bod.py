@@ -177,9 +177,10 @@ def matriz_bod(arq):
         EXPANDED = True
 
     # Verifica se tem alguma linha nos dados PLE e na matriz não
-    divergencia_ple = df_ple[~df_ple['Cod_Met'].isin(df_matriz['COD'])]['Cod_Met']
-    if not divergencia_ple.empty:
-        container_info.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
+    if up_ple is not None:
+        divergencia_ple = df_ple[~df_ple['Cod_Met'].isin(df_matriz['COD'])]['Cod_Met']
+        if not divergencia_ple.empty:
+            container_info.warning(f"⚠️ As seguintes linhas dos dados PLE não foram inseridas porque não foram encontradas na aba MATRIZ: {divergencia_ple.tolist()}")
 
     msg.write("🧠 Preparando matriz...")
     df_matriz["ANO"] = df_matriz["ANO"].fillna(df_transnet["ANO"].iloc[0]).astype(int) # Ano
@@ -494,8 +495,10 @@ if botao:
             df_soma['VT'] = df_soma['VT'] + df_soma['PL']
             df_soma = df_soma.drop(['PL', 'TOTAL'])
             df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE', 'PASS_LIVRE']].sum()
+            df_bod_total['PASS_ESC'] = df_bod_total['PASS_ESC'] + df_bod_total['PASS_LIVRE'] # Agrego os valores do PLE com o escolar
             df_bod_total['RECEITA'] = df_bod['REC_TAR_COM'].sum() + df_bod['REC_TAR_ESC'].sum() + df_bod['REC_TAR_LIVRE'].sum()
-            df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS', 'PASS_LIVRE':'PLE'})
+            df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS'})
+            df_bod_total = df_bod_total.drop('PASS_LIVRE')
 
             df_soma = df_soma.astype('object')
             df_bod_total = df_bod_total.astype('object')
