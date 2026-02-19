@@ -130,7 +130,8 @@ def dados_sintetico():
         'DIN_R$': 'R',
         'PASS_ISE': 'ISENTOS', # Colunas para a aba ATM
         'REC_TAR_COM': 'REC_TAR_COM',
-        'REC_TAR_ESC': 'REC_TAR_ESC'
+        'REC_TAR_ESC': 'REC_TAR_ESC',
+        'REC_TAR_LIVRE': 'REC_TAR_LIVRE' # PLE
     }
 
     # Agrupamento com renomeação já no resultado
@@ -144,8 +145,8 @@ def dados_sintetico():
     df_agrupado['PB'] = df_agrupado['B'] + df_agrupado['INT'] + df_agrupado['PT']
     df_agrupado['VL'] = df_agrupado['VU'] + df_agrupado['VE']
     df_agrupado['RL'] = df_agrupado['RU'] + df_agrupado['RE']
-    df_agrupado['TOTAL'] = df_agrupado['VT'] + df_agrupado['PL'] + df_agrupado['PE'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
-    df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC']
+    df_agrupado['TOTAL'] = df_agrupado['PP'] + df_agrupado['ISENTOS'] # Colunas para a aba ATM
+    df_agrupado['RECEITA'] = df_agrupado['REC_TAR_COM'] + df_agrupado['REC_TAR_ESC'] + df_agrupado['REC_TAR_LIVRE']
 
     # Condicionais
     df_agrupado['VEVL'] = np.where(df_agrupado['VE'] == 0, 0, df_agrupado['VE'] / df_agrupado['VL'])
@@ -232,20 +233,25 @@ def matriz_bod(arq):
     df_matriz['EXTP_DESL'] = round(df_matriz['KM_PROP'] * comb_desloc, 2)
     df_matriz['VR_DESL'] = round(df_matriz['EXTP_DESL'] / df_matriz['KM_OSC'])
 
-    # ---------- PLE ----------
-    # Merge com o df_ple
-    df_matriz = df_matriz.reset_index().merge(df_ple, left_on="COD", right_on="Cod_Met", how="left")
+    # ##### PLE #####
+    if up_ple is not None:
+        # Merge com o df_ple
+        df_matriz = df_matriz.reset_index().merge(df_ple, left_on="COD", right_on="Cod_Met", how="left")
 
-    # Proporção de cada linha
-    df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum")
-    df_matriz["proporcao"] = df_matriz["PASS_COM"] / df_matriz["peso_total"]
+        # Proporção de cada linha
+        df_matriz["peso_total"] = df_matriz.groupby("COD")["PASS_COM"].transform("sum") # total de pass por linha
+        df_matriz["proporcao"] = df_matriz["PASS_COM"] / df_matriz["peso_total"] 
 
-    # Preencher com o rateio
-    df_matriz["PASS_LIVRE"] = (df_matriz["count"] * df_matriz["proporcao"]).fillna(0).round(0)
-    df_matriz["REC_TAR_LIVRE"] = (df_matriz["sum"] * df_matriz["proporcao"]).fillna(0).round(2)
+        # Preenche com o rateio
+        df_matriz["PASS_LIVRE"] = (df_matriz["count"] * df_matriz["proporcao"]).fillna(0).round(0)
+        df_matriz["REC_TAR_LIVRE"] = (df_matriz["sum"] * df_matriz["proporcao"]).fillna(0).round(2)
 
-    # Remover colunas auxiliares
-    df_matriz = df_matriz.drop(columns=["peso_total", "proporcao"])
+        # Desconta das colunas normais
+        df_matriz["PASS_COM"] = (df_matriz["PASS_COM"] - df_matriz["PASS_LIVRE"]).round(0)
+        df_matriz["REC_TAR_COM"] = (df_matriz["REC_TAR_COM"] - df_matriz["REC_TAR_LIVRE"]).round(2)
+
+        # Remover colunas auxiliares
+        df_matriz = df_matriz.drop(columns=["peso_total", "proporcao"])
 
     df_matriz.reset_index(inplace=True) # Reseto os índices
     df_matriz = df_matriz[ordem_colunas] # Reorganizo as colunas
@@ -306,9 +312,9 @@ if botao:
             placeholder.warning("Arquivo de dados das linhas não foi selecionado!", icon=":material/error_outline:")        
             st.stop()
 
-        if up_ple is None:
-            placeholder.warning("Arquivo PLE não foi selecionado!", icon=":material/error_outline:")
-            st.stop()
+        #if up_ple is None:
+        #    placeholder.warning("Arquivo PLE não foi selecionado!", icon=":material/error_outline:")
+        #    st.stop()
 
         if (km is None) or (km <= 0):
             placeholder.warning("KM mensal não está de acordo!", icon=":material/error_outline:")
@@ -487,9 +493,9 @@ if botao:
             # ✳️ Comparativos de valores ✳️
             df_soma['VT'] = df_soma['VT'] + df_soma['PL']
             df_soma = df_soma.drop(['PL', 'TOTAL'])
-            df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE']].sum()
-            df_bod_total['RECEITA'] = df_bod['REC_TAR_COM'].sum() + df_bod['REC_TAR_ESC'].sum()
-            df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS'})
+            df_bod_total = df_bod[['PASS_COM', 'PASS_ESC', 'PASS_ISE', 'PASS_LIVRE']].sum()
+            df_bod_total['RECEITA'] = df_bod['REC_TAR_COM'].sum() + df_bod['REC_TAR_ESC'].sum() + df_bod['REC_TAR_LIVRE'].sum()
+            df_bod_total = df_bod_total.rename(index={'PASS_COM':'VT', 'PASS_ESC':'PE', 'PASS_ISE':'ISENTOS', 'PASS_LIVRE':'PLE'})
 
             df_soma = df_soma.astype('object')
             df_bod_total = df_bod_total.astype('object')
