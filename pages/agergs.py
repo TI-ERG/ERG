@@ -250,7 +250,7 @@ def gerar_xml(df):
     # Cabeçalho fixo
     ET.SubElement(root, "cnpj").text = "90348517000169"
     ET.SubElement(root, "razao_social").text = "Expresso Rio Guaiba Ltda"
-    ET.SubElement(root, "mes_ano").text = f"{ano}-{mes}-01"
+    ET.SubElement(root, "mes_ano").text = f"{ano}-{mes:02d}-01"
 
     # Para cada linha do DataFrame
     for _, row in df.iterrows():
@@ -470,7 +470,7 @@ if st.session_state.get("agergs", False):
             st.download_button(
                 label="📥 Download XML",
                 data=gerar_xml(st.session_state.df.copy()),
-                file_name="9034851700169-ITM-" + str(ano) + str(mes) + ".xml",
+                file_name=f"90348517000169-ITM-{ano}{mes:02d}.xml",
                 mime="application/xml"
             )
 
