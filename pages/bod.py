@@ -331,6 +331,8 @@ if botao:
             msg.write("✏️ Preenchendo planilha Metroplan...")
 
             wb_met = load_workbook(config['bod']['modelo_metroplan'])
+            wb_met.cell(row=11, column=7).number_format = '0'
+            wb_met.cell(row=11, column=8).number_format = '0'
             wb_met['Identificação da Empresa'].cell(row=11, column=7, value=int(mes))
             wb_met['Identificação da Empresa'].cell(row=11, column=8, value=int(ano))
             ws = wb_met['BOD']
